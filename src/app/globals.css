@@ -1,0 +1,105 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
+  --color-choco-900: #2a1913;
+  --color-choco-800: #3b241c;
+  --color-choco-600: #68402d;
+  --color-choco-400: #9a6a4e;
+  --color-cream-50: #fffdf7;
+  --color-cream-100: #fff7e8;
+  --color-cream-200: #f4e7ce;
+  --color-caramel-400: #e8a45c;
+  --color-caramel-500: #d98c3f;
+  --color-caramel-600: #be7429;
+  --color-xp-500: #7c5cff;
+  --color-points-500: #f5b301;
+  --color-streak-500: #ff6b35;
+  --color-goal-500: #17a398;
+  --color-success-500: #2fa84f;
+  --color-danger-500: #d64545;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-card: 1.25rem;
+  --radius-sm: 0.625rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --shadow-soft: 0 2px 12px rgba(59, 36, 28, 0.08);
+
+  --font-display: var(--font-baloo-2), system-ui, sans-serif;
+  --font-sans: var(--font-nunito), system-ui, sans-serif;
+}
+
+:root {
+  --background: #fff7e8;
+  --foreground: #3b241c;
+  --card: #fffdf7;
+  --card-foreground: #3b241c;
+  --popover: #fffdf7;
+  --popover-foreground: #3b241c;
+  --primary: #d98c3f;
+  --primary-foreground: #2a1913;
+  --secondary: #f4e7ce;
+  --secondary-foreground: #3b241c;
+  --muted: #f4e7ce;
+  --muted-foreground: #68402d;
+  --accent: #e8a45c;
+  --accent-foreground: #2a1913;
+  --destructive: #d64545;
+  --border: #e7d5b6;
+  --input: #e7d5b6;
+  --ring: #be7429;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    min-width: 320px;
+    background: var(--background);
+  }
+
+  body {
+    @apply min-h-dvh bg-background text-foreground;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
