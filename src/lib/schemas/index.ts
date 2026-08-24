@@ -1,1 +1,1 @@
-// Esquemas Zod se implementan por fases.
+export * from "./product";

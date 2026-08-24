@@ -1,1 +1,1 @@
-// Consultas de lectura se implementan por fases.
+export * from "./products";
