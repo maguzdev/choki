@@ -7,6 +7,12 @@ export interface PurchaseOutcome {
   unitCost: number;
 }
 
+export function canApplyStockAdjustment(stock: number, quantityDelta: number): boolean {
+  assertFiniteInteger(stock, "stock");
+  assertFiniteInteger(quantityDelta, "quantityDelta");
+  return quantityDelta >= 0 || stock + quantityDelta >= 0;
+}
+
 export function applyPurchase(
   current: { stock: number; avgCost: number },
   purchase: { quantity: number; totalCost: number },

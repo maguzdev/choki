@@ -2,3 +2,5 @@
 export { CategoryManager } from "./category-manager";
 export { ProductForm } from "./product-form";
 export { DeleteConfirmDialog } from "./delete-confirm-dialog";
+export { InventoryTable, StockAdjustForm } from "./inventory-table";
+export { PurchaseForm, PurchaseHistory } from "./purchase-form";

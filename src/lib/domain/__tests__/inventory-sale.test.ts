@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyPurchase } from "../inventory";
+import { applyPurchase, canApplyStockAdjustment } from "../inventory";
 import { buildSaleCommitPayload } from "../payloads";
 import { computeCashOutcome, computeSaleTotals, quickCashOptions } from "../sale";
 
@@ -26,6 +26,11 @@ describe("inventory", () => {
   });
   it("11. pondera con base cero si el stock previo es negativo", () => {
     expect(applyPurchase({ stock: -5, avgCost: 900 }, { quantity: 20, totalCost: 64000 })).toEqual({ stock: 15, avgCost: 3200, unitCost: 3200 });
+  });
+  it("impide ajustes manuales que dejan el stock por debajo de cero", () => {
+    expect(canApplyStockAdjustment(2, -3)).toBe(false);
+    expect(canApplyStockAdjustment(2, -2)).toBe(true);
+    expect(canApplyStockAdjustment(2, 3)).toBe(true);
   });
 });
 
