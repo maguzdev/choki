@@ -3,6 +3,7 @@ import { createHmac } from "node:crypto";
 import nextEnv from "@next/env";
 import { createClient, type User } from "@supabase/supabase-js";
 
+import { toLocalDate, weekDays } from "../src/lib/domain/dates";
 import type { Database } from "../src/types/database";
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -170,13 +171,61 @@ async function main() {
     if (streakError) throw streakError;
   }
 
-  console.log(`Semilla de autenticación lista: ${createdProfiles.length} perfiles.`);
+  const [{ error: rulesError }, { error: levelsError }, { error: achievementsError }] = await Promise.all([
+    supabase.from("gamification_rules").upsert([
+      { event: "SALE_COMPLETED", xp_amount: 10, points_amount: 5, active: true },
+      { event: "UNIT_SOLD", xp_amount: 2, points_amount: 1, active: true },
+    ], { onConflict: "event" }),
+    supabase.from("levels").upsert([
+      { number: 1, name: "Aprendiz", xp_required: 0, icon: "🐣", description: "Aquí comienza tu aventura.", benefit: null, active: true },
+      { number: 2, name: "Vendedor", xp_required: 100, icon: "🚀", description: "Ya dominas tus primeras ventas.", benefit: null, active: true },
+      { number: 3, name: "Experto", xp_required: 300, icon: "🏆", description: "Eres un gran vendedor.", benefit: null, active: true },
+    ], { onConflict: "number" }),
+    supabase.from("achievements").upsert([
+      { code: "FIRST_SALE", name: "Primera venta", description: "Registra tu primera venta.", icon: "🥇", condition_type: "TOTAL_SALES", target_value: 1, product_id: null, xp_reward: 20, points_reward: 10, hidden: false, active: true, sort_order: 1 },
+      { code: "TEN_UNITS", name: "10 productos", description: "Vende 10 productos.", icon: "📦", condition_type: "TOTAL_UNITS", target_value: 10, product_id: null, xp_reward: 30, points_reward: 15, hidden: false, active: true, sort_order: 2 },
+      { code: "STREAK_3", name: "3 días seguidos", description: "Vende durante 3 días consecutivos.", icon: "🔥", condition_type: "STREAK_DAYS", target_value: 3, product_id: null, xp_reward: 50, points_reward: 25, hidden: false, active: true, sort_order: 3 },
+    ], { onConflict: "code" }),
+  ]);
+  if (rulesError) throw rulesError;
+  if (levelsError) throw levelsError;
+  if (achievementsError) throw achievementsError;
+
+  const today = toLocalDate(new Date(), "America/Bogota");
+  const currentWeek = weekDays(today);
+  const challengeName = "Vender 10 unidades esta semana";
+  const { data: existingChallenge, error: challengeLookupError } = await supabase
+    .from("challenges")
+    .select("id")
+    .eq("name", challengeName)
+    .limit(1)
+    .maybeSingle();
+  if (challengeLookupError) throw challengeLookupError;
+  const challengeRow = {
+    name: challengeName,
+    description: "Suma 10 productos vendidos entre lunes y domingo.",
+    icon: "🎯",
+    starts_on: currentWeek[0]!,
+    ends_on: currentWeek[6]!,
+    condition_type: "UNITS_SOLD",
+    target_value: 10,
+    product_id: null,
+    xp_reward: 50,
+    points_reward: 25,
+    status: "ACTIVE",
+  };
+  const { error: challengeError } = existingChallenge
+    ? await supabase.from("challenges").update(challengeRow).eq("id", existingChallenge.id)
+    : await supabase.from("challenges").insert(challengeRow);
+  if (challengeError) throw challengeError;
+
+  console.log(`Semilla base lista: ${createdProfiles.length} perfiles y configuración de progreso.`);
   console.log("Padres: manuel@choki.local y mama@choki.local / choki1234");
   console.log("Niños: Niño A / 1234 y Niño B / 5678");
 }
 
 main().catch((error: unknown) => {
-  console.error("No fue posible cargar la semilla de autenticación.");
+  console.error("No fue posible cargar la semilla base.");
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
 });

@@ -66,4 +66,18 @@ describe("sale", () => {
     expect(options.every((value) => value >= 17000)).toBe(true);
     expect(new Set(options).size).toBe(options.length);
   });
+  it("impide construir una venta con más unidades que el stock disponible", () => {
+    expect(() => buildSaleCommitPayload({
+      idFactory,
+      saleId: "sale-without-stock",
+      seller: { id: "child", type: "CHILD" },
+      lines: [{ ...line, quantity: 3, stock: 2 }],
+      paymentMethod: "TRANSFER",
+      transferTip: 0,
+      soldAt: "2026-08-24T12:00:00Z",
+      localDate: "2026-08-24",
+      savingSettings: { child: { enabled: false, percent: 0 } },
+      streak: { currentStreak: 1, bestStreak: 1, protectorsAvailable: 0, lastActivityDate: "2026-08-24", days: [{ date: "2026-08-24", status: "SOLD", salesCount: 1 }] },
+    })).toThrow("Insufficient stock");
+  });
 });

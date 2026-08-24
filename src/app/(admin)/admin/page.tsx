@@ -1,5 +1,7 @@
 import { ShieldCheck } from "lucide-react";
+import Link from "next/link";
 
+import { buttonVariants } from "@/components/ui/button";
 import { requireParent } from "@/lib/auth/guards";
 
 export default async function AdminHomePage() {
@@ -16,8 +18,9 @@ export default async function AdminHomePage() {
           Bienvenido, {profile.name}
         </h1>
         <p className="mt-3 leading-7 text-choco-600">
-          El acceso administrativo está protegido. El panel llegará en su fase correspondiente.
+          El acceso administrativo está protegido. Ya puedes registrar ventas como padre; el panel completo llegará en su fase correspondiente.
         </p>
+        <Link href="/admin/vender" className={buttonVariants({ className: "mt-5 min-h-12 w-full sm:w-auto" })}>Registrar venta</Link>
       </section>
     </main>
   );

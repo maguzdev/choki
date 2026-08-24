@@ -10,3 +10,5 @@ export { deleteCategory, deleteProduct, saveCategory, saveProduct } from "./prod
 export type { CatalogActionState } from "./products";
 export { adjustStock, registerPurchase } from "./inventory";
 export type { InventoryActionState } from "./inventory";
+export { registerSale } from "./sales";
+export type { SaleActionResult, SaleSummary } from "./sales";

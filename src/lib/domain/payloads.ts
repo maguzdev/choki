@@ -121,6 +121,10 @@ export function buildSaleCommitPayload(input: {
   notifications?: readonly NotificationDraft[];
 }): SaleCommitPayload {
   assertIsoDate(input.localDate, "localDate");
+  const insufficientStock = input.lines.find((line) => line.quantity > line.stock);
+  if (insufficientStock) {
+    throw new Error(`Insufficient stock for product ${insufficientStock.productId}`);
+  }
   const totals = computeSaleTotals(input.lines);
   let cashReceived: number | null = null;
   let changeGiven: number | null = null;

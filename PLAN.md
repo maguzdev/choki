@@ -180,7 +180,7 @@ choki/
 - **Tipos**: `npm run types` ⇒ `supabase gen types typescript --local > src/types/database.ts`.
 - **Enums**: se modelan como `text` + `CHECK`. Motivo: añadir un valor a un enum de Postgres exige migración y bloquea; un `CHECK` es igual de seguro y más fácil de evolucionar.
 - **Dinero**: todos los importes en **pesos colombianos enteros** (`integer`), sin decimales. Única excepción: costos unitarios y promedios, `numeric(12,2)`, porque el promedio ponderado los produce. Reglas de redondeo en §D.2.
-- **Claves**: `uuid` con `gen_random_uuid()` por defecto; los ids de venta se generan en TypeScript (`crypto.randomUUID()`) para poder construir todas las filas hijas antes del insert atómico.
+- **Claves**: `uuid` con `gen_random_uuid()` por defecto; los ids de venta se generan en TypeScript (`crypto.randomUUID()` o UUID v4 con `crypto.getRandomValues()` cuando el navegador no expone ese método bajo HTTP local) para poder construir todas las filas hijas antes del insert atómico.
 - **Storage**: **no se usa en el MVP.** Productos, metas, recompensas y logros usan **emoji** (`text`) como imagen. Hay una columna `image_url` opcional para pegar una URL externa más adelante; no se construye subida de archivos.
 
 ### B.5 Autenticación y perfiles
@@ -240,7 +240,7 @@ El requerimiento pide (§58) analizar el sistema como un todo y resolver inconsi
 | 4 | §26 exige consumir un protector "cuando el día termina" — pero el plan prohíbe colas, crons e infraestructura. | **Evaluación perezosa por replay.** La racha nunca se guarda como estado incremental: se **reconstruye** con una función pura a partir de (días con venta) + (protectores adquiridos), cada vez que se registra una venta, se compra un protector, se anula una venta o se abre el dashboard/página de racha con `last_evaluated_date < hoy`. Resultado idéntico a un cron, cero infraestructura, y las anulaciones quedan correctas gratis. Detalle en §D.8. |
 | 5 | §15 exige que una anulación revierta ganancias, pero el dinero pudo haberse gastado o aportado a una meta. | La reversión **espeja exactamente** los movimientos originales (mismo reparto disponible/ahorro). El saldo disponible **puede quedar negativo**; no se bloquea la anulación ni se toca el ahorro ni las metas. El dashboard administrativo muestra una alerta "saldo negativo" hasta que se regularice. Igual criterio para puntos ya gastados. |
 | 6 | §15 exige revertir XP y puntos, pero §23 define los logros como reconocimientos históricos. | Se revierten XP y puntos con movimientos negativos. **Los logros ya desbloqueados no se revocan** y sus recompensas no se retiran (desmotivador y de valor nulo en una app familiar). El progreso de retos sí se recalcula. Se documenta en la UI de anulación. |
-| 7 | El POS debe evitar errores (§52) pero también no bloquear una venta real en el colegio. | **Nunca se bloquea una venta por falta de stock.** El stock puede quedar negativo; se muestra un aviso no bloqueante al vendedor ("te quedaste sin barquillos") y una alerta en el dashboard admin. Prevenir errores no puede significar impedir registrar dinero que ya se recibió. |
+| 7 | El POS debe evitar errores (§52) y mantener un inventario físicamente coherente. | **Nunca se permite vender más unidades que el stock disponible.** El POS bloquea el incremento al alcanzar la existencia registrada; la Server Action vuelve a validar el stock actual y `sale_commit` lo comprueba atómicamente para cubrir ventas simultáneas. Si el stock cambió, no se persiste ningún efecto de la venta y se pide actualizar el carrito. |
 | 8 | §7 distingue ahorro de metas, pero no dice de dónde sale el dinero que se aporta a una meta. | Tres bolsillos explícitos: **Disponible**, **Ahorro**, **Metas**. Un aporte a meta puede salir de Disponible o de Ahorro (el niño elige). Cada movimiento registra los tres deltas. Total del niño = disponible + ahorro + Σ metas. |
 | 9 | §25 no aclara si un día protegido incrementa la racha. | Un día protegido **conserva** la racha, no la incrementa. Solo un día con venta propia suma. |
 | 10 | §4.2 dice "50/50 inicial" pero no qué pasa si los porcentajes no suman 100, o si hay 1 o 3 niños. | La configuración se valida en servidor: la suma debe ser exactamente 100. El reparto de pesos usa **mayor resto** (§D.5) para que la suma de las partes sea exactamente el total, sin céntimos perdidos. |
@@ -343,7 +343,7 @@ create table products (
   price       integer not null check (price >= 0),          -- precio de venta
   cost        integer not null default 0 check (cost >= 0), -- costo de referencia manual
   avg_cost    numeric(12,2) not null default 0,             -- costo promedio ponderado
-  stock       integer not null default 0,                   -- puede ser negativo (ver B.9 #7)
+  stock       integer not null default 0,                   -- las escrituras impiden que quede negativo
   min_stock   integer not null default 0 check (min_stock >= 0),
   active      boolean not null default true,
   sort_order  integer not null default 0,
@@ -796,10 +796,31 @@ Cuatro funciones. Todas reciben un `jsonb` con las filas **ya calculadas** por l
 -- 1) Registrar una venta completa
 create or replace function public.sale_commit(p jsonb) returns void
 language plpgsql as $$
+declare
+  v_expected_updates integer := jsonb_array_length(p->'stock_deltas');
+  v_updated_products integer;
 begin
+  -- El descuento ocurre primero y toma bloqueo de fila. Una venta concurrente
+  -- solo continúa si todavía existe stock suficiente para todas sus líneas.
+  update products pr set stock = pr.stock + s.delta, updated_at = now()
+  from (select (v->>'product_id')::uuid pid, (v->>'delta')::int delta
+        from jsonb_array_elements(p->'stock_deltas') v) s
+  where pr.id = s.pid and pr.stock + s.delta >= 0;
+  get diagnostics v_updated_products = row_count;
+  if v_updated_products <> v_expected_updates then
+    raise exception using errcode = 'P0001', message = 'INSUFFICIENT_STOCK';
+  end if;
+
   insert into sales           select * from jsonb_populate_recordset(null::sales,               p->'sale');
   insert into sale_items      select * from jsonb_populate_recordset(null::sale_items,          p->'items');
-  insert into inventory_movements select * from jsonb_populate_recordset(null::inventory_movements, p->'inventory');
+  -- inventory_movements.stock_after se toma del stock ya actualizado, no del
+  -- snapshot del cliente, para conservar trazabilidad correcta bajo concurrencia.
+  insert into inventory_movements (id, product_id, type, quantity_delta, reason,
+    reference_type, reference_id, stock_after, note, created_by, created_at, local_date)
+  select i.id, i.product_id, i.type, i.quantity_delta, i.reason, i.reference_type,
+    i.reference_id, pr.stock, i.note, i.created_by, i.created_at, i.local_date
+  from jsonb_populate_recordset(null::inventory_movements, p->'inventory') i
+  join products pr on pr.id = i.product_id;
   insert into earning_allocations select * from jsonb_populate_recordset(null::earning_allocations, p->'allocations');
   insert into money_movements select * from jsonb_populate_recordset(null::money_movements,     p->'money');
   insert into xp_movements    select * from jsonb_populate_recordset(null::xp_movements,        p->'xp');
@@ -807,12 +828,6 @@ begin
   insert into achievement_unlocks select * from jsonb_populate_recordset(null::achievement_unlocks, p->'unlocks')
     on conflict do nothing;
   insert into notifications   select * from jsonb_populate_recordset(null::notifications,       p->'notifications');
-
-  -- stock (deltas)
-  update products pr set stock = pr.stock + s.delta, updated_at = now()
-  from (select (v->>'product_id')::uuid pid, (v->>'delta')::int delta
-        from jsonb_array_elements(p->'stock_deltas') v) s
-  where pr.id = s.pid;
 
   -- progreso de retos
   insert into challenge_progress select * from jsonb_populate_recordset(null::challenge_progress, p->'challenges')
@@ -943,7 +958,7 @@ export function applyPurchase(
 Reglas:
 
 1. `unitCost = totalCost / quantity` (numeric, 2 decimales).
-2. `baseStock = max(current.stock, 0)` — si el stock es negativo no se usa para ponderar (evita promedios absurdos).
+2. `baseStock = max(current.stock, 0)` — defensa para datos heredados o importados; las nuevas escrituras no permiten generar stock negativo.
 3. `avgCost = (baseStock * current.avgCost + totalCost) / (baseStock + quantity)`, redondeado a 2 decimales.
 4. `stock = current.stock + quantity`.
 5. Si el producto nunca tuvo compras (`avgCost = 0`), el nuevo promedio es simplemente `unitCost`.
@@ -978,7 +993,7 @@ Reglas:
 6. `earnings_total = margin_total + tip_total`. Esta es la "ganancia económica" del §13 del requerimiento.
 7. **La propina nunca modifica el precio de los productos** ni el `items_total`.
 8. `units_total = Σ quantity`. Debe ser ≥ 1 para poder registrar.
-9. **Stock:** se descuenta siempre; puede quedar negativo (B.9 #7). Se genera un `inventory_movements` tipo `SALE` por línea y, si algún producto queda en `stock <= min_stock`, una notificación `LOW_STOCK` para **todos los padres**.
+9. **Stock:** cada línea debe cumplir `quantity <= stock`. La UI impide superar el máximo disponible, la Server Action valida nuevamente contra el stock vigente y `sale_commit` realiza un descuento condicional atómico; si alguna línea no alcanza, toda la transacción falla con `INSUFFICIENT_STOCK`. Se genera un `inventory_movements` tipo `SALE` por línea y, si algún producto queda en `stock <= min_stock`, una notificación `LOW_STOCK` para **todos los padres**.
 
 ### D.5 Atribución y distribución de la ganancia
 
@@ -1333,7 +1348,7 @@ Tras entrar: `CHILD` → `/`; `PARENT` → `/admin`. El middleware redirige `/` 
 
 - Toda la fila (menos los botones) es tocable y suma +1: el camino rápido es tocar el producto.
 - El `[−]` desaparece cuando la cantidad es 0. Cantidad en `tabular-nums`.
-- Aviso no bloqueante bajo el producto si `quantity > stock`: "Solo quedan 2 registrados". No impide vender (B.9 #7).
+- Al llegar a `quantity = stock`, la fila y el botón `[+]` dejan de sumar y se muestra "Máximo disponible: 2 unidades". Con stock `0`, el producto indica "Sin existencias" y no puede agregarse.
 - La barra inferior está deshabilitada mientras el carrito esté vacío.
 - El carrito se guarda en `sessionStorage` (`choki:cart`) y se restaura si la pestaña se recarga.
 - Búsqueda solo si hay más de 12 productos activos (evitar teclado innecesario).
@@ -1383,7 +1398,7 @@ Tras entrar: `CHILD` → `/`; `PARENT` → `/admin`. El middleware redirige `/` 
    [ Nueva venta ]   [ Ir al inicio ]
 ```
 
-Solo se muestran las filas que apliquen: un padre no ve XP/puntos/racha, sino "Se repartió: Sara $3.200 · Tomás $3.200". Si hubo propina, aparece como línea propia. Si el stock quedó en negativo, aviso ámbar.
+Solo se muestran las filas que apliquen: un padre no ve XP/puntos/racha, sino "Se repartió: Sara $3.200 · Tomás $3.200". Si hubo propina, aparece como línea propia. Una venta nunca llega a esta hoja si alguna cantidad supera el stock disponible.
 
 ### F.3 Dashboard del niño en móvil
 
@@ -1656,10 +1671,11 @@ Además, los **constructores de payload**: `buildSaleCommitPayload(...)` y `buil
    - `revalidatePath` de las rutas afectadas y devuelve el resumen para la hoja de resultado.
 4. Hoja de resultado (§F.2 paso 3) con celebraciones.
 5. Idempotencia básica: el `sale_id` se genera en el cliente al abrir la hoja de pago y viaja con la petición; `sales.id` es PK ⇒ un doble envío falla con conflicto y se trata como "ya registrada" en vez de duplicar.
+6. Control de stock en tres capas: límite visible en el carrito, validación con datos vigentes en `registerSale` y descuento condicional atómico en `sale_commit`; nunca se persiste una venta que deje stock negativo.
 
 **Dependencias.** Fases 3–5.
 
-**Validación.** Venta de niño: stock baja, aparece `earning_allocations` OWN_SALE, dos movimientos de XP y dos de puntos, `money_movements` con el reparto de ahorro correcto, racha +1. Venta de padre: se crean 2 asignaciones FAMILY_SHARE que suman exactamente la ganancia, sin XP ni puntos ni racha. Caso propina y caso transferencia. Cortar la red a mitad ⇒ no queda nada escrito a medias.
+**Validación.** Venta de niño: stock baja, aparece `earning_allocations` OWN_SALE, dos movimientos de XP y dos de puntos, `money_movements` con el reparto de ahorro correcto, racha +1. Venta de padre: se crean 2 asignaciones FAMILY_SHARE que suman exactamente la ganancia, sin XP ni puntos ni racha. Caso propina y caso transferencia. Intentar superar el stock desde la UI o con una petición desactualizada ⇒ se rechaza sin escribir ningún efecto. Cortar la red a mitad ⇒ no queda nada escrito a medias.
 
 **Criterio de finalización.** Los 3 escenarios (niño/padre, efectivo/transferencia, con/sin propina) producen datos íntegros y coincidentes con los tests de dominio.
 
@@ -1875,6 +1891,7 @@ Todos estos datos son temporales y no representan la configuración final del ne
 16. Transferencia: sin cambio, con propina explícita.
 17. La propina no altera `items_total` ni el costo.
 18. `quickCashOptions(17000)` devuelve valores crecientes, todos ≥ total, sin duplicados.
+18 bis. Construir una venta con cantidad superior al stock ⇒ error antes de generar el payload.
 
 **`earnings.test.ts`**
 19. Venta de niño ⇒ 1 asignación `OWN_SALE` con el 100 % de margen y propina.
