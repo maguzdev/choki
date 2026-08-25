@@ -1,4 +1,4 @@
-import { PiggyBank, Sparkles, Target } from "lucide-react";
+import { Gift, PiggyBank, Sparkles, Star, Target } from "lucide-react";
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -18,7 +18,7 @@ export default async function ChildHomePage() {
         <p className="mt-3 leading-7 text-choco-600">
           Tu acceso está listo y protegido. Ya puedes registrar tus ventas; el dashboard completo llegará en su fase correspondiente.
         </p>
-        <div className="mt-5 grid gap-2 sm:grid-cols-3"><Link href="/vender" className={buttonVariants({ className: "min-h-12" })}>Registrar venta</Link><Link href="/dinero" className={buttonVariants({ variant: "outline", className: "min-h-12" })}><PiggyBank aria-hidden="true" /> Mi dinero</Link><Link href="/metas" className={buttonVariants({ variant: "outline", className: "min-h-12" })}><Target aria-hidden="true" /> Mis metas</Link></div>
+        <div className="mt-5 grid gap-2 sm:grid-cols-2"><Link href="/vender" className={buttonVariants({ className: "min-h-12 sm:col-span-2" })}>Registrar venta</Link><Link href="/progreso" className={buttonVariants({ variant: "outline", className: "min-h-12" })}><Star aria-hidden="true" /> Mi progreso</Link><Link href="/premios" className={buttonVariants({ variant: "outline", className: "min-h-12" })}><Gift aria-hidden="true" /> Premios</Link><Link href="/dinero" className={buttonVariants({ variant: "outline", className: "min-h-12" })}><PiggyBank aria-hidden="true" /> Mi dinero</Link><Link href="/metas" className={buttonVariants({ variant: "outline", className: "min-h-12" })}><Target aria-hidden="true" /> Mis metas</Link></div>
       </section>
     </main>
   );

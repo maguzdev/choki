@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { Calculator, ShoppingBasket } from "lucide-react";
+import { Calculator, History, ShoppingBasket } from "lucide-react";
 
+import { MonthlyHistory } from "@/components/shared/monthly-history";
 import { Button } from "@/components/ui/button";
 import { registerPurchase, type InventoryActionState } from "@/lib/actions/inventory";
 import type { InventoryProduct, PurchaseHistoryItem } from "@/lib/data/inventory";
@@ -49,6 +50,6 @@ export function PurchaseForm({ products }: { products: InventoryProduct[] }) {
   return <PurchaseEditor key={version} products={products} onSaved={() => setVersion((value) => value + 1)} />;
 }
 
-export function PurchaseHistory({ purchases }: { purchases: PurchaseHistoryItem[] }) {
-  return <section className="mt-6"><h2 className="font-display text-2xl font-bold">Historial de compras</h2><div className="mt-3 space-y-2">{purchases.map((purchase) => <article key={purchase.id} className="flex items-center gap-3 rounded-lg border border-cream-200 bg-white p-3"><span className="text-2xl">{purchase.productEmoji}</span><div className="min-w-0 flex-1"><p className="truncate font-semibold">{purchase.productName}</p><p className="text-sm text-choco-600">{purchase.quantity} uds · {formatCOP(purchase.total_cost)} · unitario {formatCost(purchase.unit_cost)}</p></div><div className="text-right text-sm"><p className="text-choco-600">Promedio</p><p className="font-semibold text-caramel-600">{formatCost(purchase.avgCostAfter)}</p></div></article>)}{purchases.length === 0 ? <p className="rounded-lg border border-dashed border-cream-200 bg-cream-50 p-5 text-center text-sm text-choco-600">Aún no hay compras registradas.</p> : null}</div></section>;
+export function PurchaseHistory({ purchases, today }: { purchases: PurchaseHistoryItem[]; today: string }) {
+  return <section className="mt-6"><div className="flex items-center gap-2"><History aria-hidden="true" className="size-5 text-caramel-600" /><h2 className="font-display text-2xl font-bold">Historial de compras</h2></div><MonthlyHistory idPrefix="purchases" items={purchases.map((purchase) => ({ ...purchase, localDate: purchase.local_date }))} today={today} emptyMessage="No hay compras" getKey={(purchase) => purchase.id} renderItem={(purchase) => <article className="flex items-center gap-3 rounded-lg border border-cream-200 bg-white p-3"><span className="text-2xl">{purchase.productEmoji}</span><div className="min-w-0 flex-1"><p className="truncate font-semibold">{purchase.productName}</p><p className="text-sm text-choco-600">{purchase.quantity} uds · {formatCOP(purchase.total_cost)} · unitario {formatCost(purchase.unit_cost)}</p></div><div className="text-right text-sm"><p className="text-choco-600">Promedio</p><p className="font-semibold text-caramel-600">{formatCost(purchase.avgCostAfter)}</p></div></article>} /></section>;
 }

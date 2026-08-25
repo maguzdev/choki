@@ -160,10 +160,10 @@ async function main() {
           child_id: user.id,
           current_streak: 0,
           best_streak: 0,
-          protectors_available: 0,
+          protectors_available: 3,
           last_activity_date: null,
           last_evaluated_date: null,
-        }),
+        }, { onConflict: "child_id", ignoreDuplicates: true }),
       ]);
 
     if (settingsError) throw settingsError;
@@ -251,6 +251,20 @@ async function main() {
     ? await supabase.from("challenges").update(challengeRow).eq("id", existingChallenge.id)
     : await supabase.from("challenges").insert(challengeRow);
   if (challengeError) throw challengeError;
+
+  const rewardSeeds: Database["public"]["Tables"]["rewards"]["Insert"][] = [
+    { name: "Protector de racha", description: "Repone uno de los 3 protectores gratuitos después de usarlo.", icon: "🛡️", image_url: null, cost_points: 100, type: "STREAK_PROTECTOR", stock: null, active: true, sort_order: 1 },
+    { name: "30 min extra de pantalla", description: "Canjea tiempo adicional de pantalla con un adulto.", icon: "📺", image_url: null, cost_points: 200, type: "NORMAL", stock: null, active: true, sort_order: 2 },
+  ];
+  for (const reward of rewardSeeds) {
+    const { data: existingReward, error: rewardLookupError } = await supabase
+      .from("rewards").select("id").eq("name", reward.name).limit(1).maybeSingle();
+    if (rewardLookupError) throw rewardLookupError;
+    const { error: rewardError } = existingReward
+      ? await supabase.from("rewards").update(reward).eq("id", existingReward.id)
+      : await supabase.from("rewards").insert(reward);
+    if (rewardError) throw rewardError;
+  }
 
   console.log(`Semilla base lista: ${createdProfiles.length} perfiles y configuración de progreso.`);
   console.log("Padres: manuel@choki.local y mama@choki.local / choki1234");

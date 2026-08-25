@@ -4,6 +4,7 @@ import { useActionState, useEffect, useMemo, useState, useTransition } from "rea
 import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { FormSwitch } from "@/components/ui/form-switch";
 import { deleteProduct, saveProduct, type CatalogActionState } from "@/lib/actions/products";
 import type { Category, Product } from "@/lib/data/products";
 import { formatCOP } from "@/lib/domain/money";
@@ -32,7 +33,7 @@ function Editor({ categories, product, onClose }: { categories: Category[]; prod
       <label className="text-sm font-semibold">Stock actual<input name="stock" type="number" inputMode="numeric" defaultValue={product?.stock ?? 0} className="mt-1 h-11 w-full rounded-lg border border-cream-200 bg-white px-3" required /></label>
       <label className="text-sm font-semibold">Stock mínimo<input name="minStock" type="number" min="0" inputMode="numeric" defaultValue={product?.min_stock ?? 0} className="mt-1 h-11 w-full rounded-lg border border-cream-200 bg-white px-3" required /></label>
       <label className="text-sm font-semibold">Orden<input name="sortOrder" type="number" min="0" inputMode="numeric" defaultValue={product?.sort_order ?? 0} className="mt-1 h-11 w-full rounded-lg border border-cream-200 bg-white px-3" required /></label>
-      <label className="flex h-11 items-center gap-2 self-end rounded-lg bg-cream-100 px-3 text-sm font-semibold"><input name="active" type="checkbox" defaultChecked={product?.active ?? true} /> Visible y activo</label>
+      <div className="self-end rounded-lg bg-cream-100 px-3"><FormSwitch name="active" defaultChecked={product?.active ?? true} label="Visible y activo" disabled={pending} /></div>
     </div>
     <div className="mt-4"><p className="text-sm font-semibold">Emoji</p><div className="mt-2 flex flex-wrap gap-1.5">{FOOD_EMOJIS.map((item, index) => <button key={`${item}-${index}`} type="button" onClick={() => setEmoji(item)} className={`flex size-11 items-center justify-center rounded-lg border text-xl ${emoji === item ? "border-caramel-600 bg-caramel-400/30" : "border-cream-200 bg-white"}`} aria-label={`Usar ${item}`}>{item}</button>)}</div></div>
     {product ? <p className="mt-4 rounded-lg bg-cream-100 p-3 text-sm text-choco-600">Costo promedio actual: <strong>{product.avg_cost}</strong>. Se calcula en compras y se usa en las ventas cuando ya existe.</p> : null}

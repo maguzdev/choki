@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState, useTransition } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { FormSwitch } from "@/components/ui/form-switch";
 import { deleteCategory, saveCategory, type CatalogActionState } from "@/lib/actions/products";
 import type { Category, Product } from "@/lib/data/products";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
@@ -38,7 +39,7 @@ function CategoryEditor({ category, onClose }: { category?: Category; onClose: (
       </div>
       <div className="mt-4 grid grid-cols-[1fr_auto] items-end gap-3">
         <label className="block text-sm font-semibold">Orden<input name="sortOrder" type="number" min="0" inputMode="numeric" defaultValue={category?.sort_order ?? 0} className="mt-1 h-11 w-full rounded-lg border border-cream-200 bg-white px-3" required /></label>
-        <label className="flex h-11 items-center gap-2 rounded-lg bg-cream-100 px-3 text-sm font-semibold"><input name="active" type="checkbox" defaultChecked={category?.active ?? true} /> Activa</label>
+        <div className="rounded-lg bg-cream-100 px-3"><FormSwitch name="active" defaultChecked={category?.active ?? true} label="Activa" disabled={pending} /></div>
       </div>
       {state.message ? <p className={`mt-3 text-sm ${state.status === "error" ? "text-danger-500" : "text-success-500"}`}>{state.message}</p> : null}
       <Button className="mt-4 w-full" type="submit" disabled={pending}>{pending ? "Guardando…" : "Guardar categoría"}</Button>

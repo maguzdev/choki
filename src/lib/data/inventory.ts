@@ -1,5 +1,6 @@
 import "server-only";
 
+import { toLocalDate } from "@/lib/domain/dates";
 import { applyPurchase } from "@/lib/domain/inventory";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
@@ -20,19 +21,22 @@ export type InventoryHistoryItem = InventoryMovement & {
 };
 
 export async function getAdminInventoryData(): Promise<{
+  today: string;
   products: InventoryProduct[];
   purchases: PurchaseHistoryItem[];
   movements: InventoryHistoryItem[];
 }> {
   const supabase = await createServerSupabaseClient();
-  const [productsResult, purchasesResult, movementsResult] = await Promise.all([
+  const [productsResult, purchasesResult, movementsResult, settingsResult] = await Promise.all([
     supabase.from("products").select("*").order("sort_order").order("name"),
     supabase.from("purchases").select("*").order("purchased_at", { ascending: true }),
     supabase.from("inventory_movements").select("*").order("created_at", { ascending: false }),
+    supabase.from("app_settings").select("timezone").eq("id", 1).maybeSingle(),
   ]);
   if (productsResult.error) throw new Error(productsResult.error.message);
   if (purchasesResult.error) throw new Error(purchasesResult.error.message);
   if (movementsResult.error) throw new Error(movementsResult.error.message);
+  if (settingsResult.error) throw new Error(settingsResult.error.message);
 
   const productsById = new Map(productsResult.data.map((product) => [product.id, product]));
   const movementByPurchaseId = new Map(
@@ -66,5 +70,5 @@ export async function getAdminInventoryData(): Promise<{
       productEmoji: product?.emoji ?? "📦",
     };
   });
-  return { products: productsResult.data, purchases, movements };
+  return { today: toLocalDate(new Date(), settingsResult.data?.timezone ?? "America/Bogota"), products: productsResult.data, purchases, movements };
 }

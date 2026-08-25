@@ -2001,8 +2001,11 @@ export type Database = {
     Functions: {
       is_parent: { Args: never; Returns: boolean }
       purchase_commit: { Args: { p: Json }; Returns: undefined }
+      redemption_update: { Args: { p: Json }; Returns: undefined }
+      reward_redeem: { Args: { p: Json }; Returns: undefined }
       sale_commit: { Args: { p: Json }; Returns: undefined }
       sale_void: { Args: { p: Json }; Returns: undefined }
+      streak_refresh: { Args: { p: Json }; Returns: undefined }
       streak_sync: { Args: { p: Json }; Returns: undefined }
       wallet_commit: { Args: { p: Json }; Returns: undefined }
     }

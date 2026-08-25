@@ -250,6 +250,7 @@ El requerimiento pide (§58) analizar el sistema como un todo y resolver inconsi
 | 12 | §21 define el protector de racha como un *tipo de recompensa*, y §27 pide configurar "precio de protectores" por separado. | Una sola fuente: el protector es una fila de `rewards` con `type = 'STREAK_PROTECTOR'`. Su `cost_points` **es** el precio. El máximo simultáneo vive en `app_settings.protector_max`. No hay precio duplicado. |
 | 13 | El requerimiento no fija zona horaria en el cálculo de día pero §43 la exige. | `sales.local_date` se calcula **en el servidor** con la zona horaria de `app_settings.timezone` en el momento del commit y se **almacena**. Nunca se recalcula desde `timestamptz` en consultas. Cambiar la zona horaria más adelante no reescribe el pasado (correcto y deliberado). |
 | 14 | §12 pide pagos en efectivo con cambio y §14 prohíbe pagos divididos. | En transferencia no hay `cash_received` ni cambio, pero **sí puede haber propina** (el cliente transfiere de más). Se soporta con un campo de propina explícito en el paso de pago. |
+| 15 | La capacidad inicial de protectores no estaba explicitada. | Cada niño recibe **3 protectores gratuitos al crear su perfil**, registrados como un `protector_events.type = 'GRANT'`. Se consumen al proteger días fallidos y pueden reponerse por canje sin superar `protector_max`, cuyo valor predeterminado y techo permitido es 3. |
 ---
 
 ## C. Modelo de datos
@@ -288,7 +289,7 @@ create table app_settings (
   family_name        text        not null default 'Familia',
   timezone           text        not null default 'America/Bogota',
   currency           text        not null default 'COP',
-  protector_max      integer     not null default 3 check (protector_max >= 0),
+  protector_max      integer     not null default 3 check (protector_max between 0 and 3),
   low_stock_alerts   boolean     not null default true,
   celebrations       boolean     not null default true,
   updated_at         timestamptz not null default now()
@@ -610,7 +611,7 @@ create table child_streaks (
   child_id             uuid primary key references profiles(id) on delete cascade,
   current_streak       integer not null default 0,
   best_streak          integer not null default 0,
-  protectors_available integer not null default 0,
+  protectors_available integer not null default 3,
   last_activity_date   date,
   last_evaluated_date  date,
   updated_at           timestamptz not null default now()
@@ -624,7 +625,8 @@ create table streak_days (
   primary key (child_id, local_date)
 );
 
--- Solo ALTAS de protectores. El consumo es derivado (streak_days.status='PROTECTED').
+-- Solo ALTAS de protectores: grant inicial, regalos y compras.
+-- El consumo es derivado (streak_days.status='PROTECTED').
 create table protector_events (
   id           uuid primary key default gen_random_uuid(),
   child_id     uuid not null references profiles(id) on delete cascade,
@@ -1094,7 +1096,7 @@ Reglas adicionales:
 // src/lib/domain/streak.ts
 export type StreakInput = {
   saleDays: { date: LocalDate; count: number }[];   // días con ≥1 venta propia COMPLETED, asc
-  protectorGrants: { date: LocalDate; quantity: number }[]; // compras y regalos, asc
+  protectorGrants: { date: LocalDate; quantity: number }[]; // grant inicial, compras y regalos, asc
   today: LocalDate;
   maxProtectors: number;
 };
@@ -1130,14 +1132,15 @@ para D desde inicio hasta today:
 
 Consecuencias y reglas derivadas:
 
-1. **Nunca se consume un protector antes de que el día termine** (§26). Un niño sin venta *hoy* ve la racha intacta y un aviso "aún puedes vender hoy".
-2. Un protector comprado el día D puede proteger el propio día D (al cerrarse).
-3. `protectorsAvailable` es **derivado** (`Σ grants − nº de días PROTECTED`); `protector_events` solo registra altas.
-4. Comprar un protector se bloquea si `protectorsAvailable >= app_settings.protector_max`.
-5. **Cuándo se ejecuta el replay** (`ensureStreakUpToDate(childId)`): al registrar una venta de niño, al anular una venta de niño, al comprar/canjear un protector, y al renderizar el dashboard del niño, la página de racha o el dashboard admin **si** `child_streaks.last_evaluated_date < hoy`. El resultado se persiste con `streak_sync`.
-6. Coste: ≤ ~400 iteraciones al año y por niño. Irrelevante.
-7. **Hitos de racha** (opcional, ya soportado por el modelo): si `current` alcanza 7, 14, 30… se puede otorgar XP con `reason='STREAK_MILESTONE'`. En el MVP se dejan **desactivados** (sin filas de configuración); el motor lo admite pero no se siembra ninguna regla, para no inventar contenido.
-8. La racha solo la mueven **ventas propias del niño**. Las ventas de padres no la tocan.
+1. Cada niño recibe **3 protectores gratuitos iniciales** mediante un evento `GRANT`; no cuestan puntos y forman parte del replay desde la fecha de creación del perfil.
+2. **Nunca se consume un protector antes de que el día termine** (§26). Un niño sin venta *hoy* ve la racha intacta y un aviso "aún puedes vender hoy".
+3. Un protector comprado el día D puede proteger el propio día D (al cerrarse).
+4. `protectorsAvailable` es **derivado** (`Σ grants − nº de días PROTECTED`); `protector_events` solo registra altas.
+5. Los protectores consumidos pueden reponerse mediante canje, pero la compra se bloquea si `protectorsAvailable >= app_settings.protector_max`. El máximo configurable nunca puede superar 3.
+6. **Cuándo se ejecuta el replay** (`ensureStreakUpToDate(childId)`): al registrar una venta de niño, al anular una venta de niño, al comprar/canjear un protector, y al renderizar el dashboard del niño, la página de racha o el dashboard admin **si** `child_streaks.last_evaluated_date < hoy`. El resultado se persiste con `streak_sync`.
+7. Coste: ≤ ~400 iteraciones al año y por niño. Irrelevante.
+8. **Hitos de racha** (opcional, ya soportado por el modelo): si `current` alcanza 7, 14, 30… se puede otorgar XP con `reason='STREAK_MILESTONE'`. En el MVP se dejan **desactivados** (sin filas de configuración); el motor lo admite pero no se siembra ninguna regla, para no inventar contenido.
+9. La racha solo la mueven **ventas propias del niño**. Las ventas de padres no la tocan.
 
 ### D.9 XP, puntos y niveles
 
@@ -1721,13 +1724,13 @@ Además, los **constructores de payload**: `buildSaleCommitPayload(...)` y `buil
 
 **Funcionalidades.**
 1. `/progreso`: nivel + barra, lista de niveles con estado, logros (desbloqueados / pendientes / ocultos), retos activos con progreso, ranking XP entre hermanos (discreto, al final), historial de XP y puntos con su descripción.
-2. `/racha`: cabecera, `ActivityCalendar` mensual, protectores, compra de protector; `ensureStreakUpToDate` al entrar.
+2. `/racha`: cabecera, `ActivityCalendar` mensual, 3 protectores gratuitos iniciales, consumo y reposición por compra sin superar 3; `ensureStreakUpToDate` al entrar.
 3. `/premios`: puntos, catálogo, canje, compra de protector, historial de canjes.
 4. Admin: editar reglas de XP/puntos, CRUD de niveles, logros (con selector de condición y, si es `PRODUCT_UNITS`, de producto), retos, recompensas (incluido el protector y su precio) y `protector_max`; lista de canjes con marcar entregado / cancelar (devolviendo puntos).
 
 **Dependencias.** Fases 3, 6.
 
-**Validación.** Canjear con puntos insuficientes se rechaza; comprar protector con el máximo alcanzado se rechaza; el calendario refleja 🔥/🛡️/✖️ según el replay; cambiar `SALE_COMPLETED` a 20 XP afecta solo a ventas futuras.
+**Validación.** Un niño nuevo inicia con 3 protectores gratuitos; tras consumirlos puede reponerlos por canje hasta volver a 3; canjear con puntos insuficientes se rechaza; comprar protector con el máximo alcanzado se rechaza; el calendario refleja 🔥/🛡️/✖️ según el replay; cambiar `SALE_COMPLETED` a 20 XP afecta solo a ventas futuras.
 
 **Criterio de finalización.** Toda la gamificación es configurable desde la app y ninguna cifra de XP/puntos/nivel/precio está codificada en el frontend.
 
@@ -1991,6 +1994,7 @@ Recorrer con los datos semilla, en un celular real o en el emulador de dispositi
 - [ ] 24. Un día sin venta ya cerrado consume un protector y el calendario lo marca 🛡️.
 - [ ] 25. Sin protectores, la racha se rompe y el día se marca como roto.
 - [ ] 26. Comprar un protector con puntos; se bloquea al llegar al máximo.
+- [ ] 26a. Un niño nuevo recibe 3 protectores gratuitos; después de consumir uno puede comprar uno y volver a 3, nunca a 4.
 - [ ] 27. Canjear una recompensa descuenta puntos y aparece en el historial.
 - [ ] 28. Configurar niveles, reglas de XP/puntos, logros, retos y recompensas desde el admin, y que el cambio se refleje.
 

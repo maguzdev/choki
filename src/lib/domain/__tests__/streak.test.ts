@@ -16,4 +16,11 @@ describe("streak replay", () => {
     expect(after.currentStreak).toBe(0);
   });
   it("42. no acumula más protectores que el máximo", () => expect(replayStreak({ saleDays: [], protectorGrants: [{ date: "2026-08-20", quantity: 8 }], today: "2026-08-24", maxProtectors: 3 }).protectorsAvailable).toBe(3));
+  it("un niño inicia con tres protectores gratuitos", () => expect(replayStreak({ saleDays: [], protectorGrants: [{ date: "2026-08-20", quantity: 3 }], today: "2026-08-20", maxProtectors: 3 }).protectorsAvailable).toBe(3));
+  it("puede reponer dos protectores consumidos sin superar tres", () => expect(replayStreak({
+    saleDays: [{ date: "2026-08-20", count: 1 }],
+    protectorGrants: [{ date: "2026-08-20", quantity: 3 }, { date: "2026-08-23", quantity: 2 }],
+    today: "2026-08-23",
+    maxProtectors: 3,
+  }).protectorsAvailable).toBe(3));
 });

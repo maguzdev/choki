@@ -24,6 +24,12 @@ describe("gamification", () => {
     expect(result.xp.map((movement) => movement.amount)).toEqual([10, 8]);
     expect(result.points.map((movement) => movement.amount)).toEqual([5, 4]);
   });
+  it("describe una sola unidad en singular", () => {
+    const result = xpAndPointsForSale({ unitsTotal: 1 }, [
+      { event: "UNIT_SOLD", xp: 2, points: 1, active: true },
+    ]);
+    expect(result.xp[0]?.description).toBe("1 producto vendido");
+  });
   it("29. selecciona el nivel en el límite exacto", () => {
     expect(levelFor(100, levels)).toMatchObject({ current: levels[1], xpIntoLevel: 0 });
   });

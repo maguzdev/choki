@@ -5,3 +5,6 @@ export * from "./withdraw-sheet";
 export * from "./goal-card";
 export * from "./goal-contribute-sheet";
 export * from "./goal-manager";
+export * from "./activity-calendar";
+export * from "./gamification-cards";
+export * from "./reward-catalog";

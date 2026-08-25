@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { Banknote, Smartphone } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { FormSwitch } from "@/components/ui/form-switch";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { registerSale, type SaleActionResult, type SaleSummary } from "@/lib/actions/sales";
 import type { PosSeller } from "@/lib/data/pos";
@@ -106,7 +107,7 @@ export function PaymentSheet({ open, onOpenChange, saleId, seller, items, itemsT
             {cashTip > 0 && changeGiven > 0 ? <p className="mt-1 text-sm">Devuelves {formatCOP(changeGiven)}</p> : null}
           </section> : <p className="rounded-xl bg-danger-500/10 p-3 text-sm font-semibold text-danger-500">Faltan {formatCOP(itemsTotal - cashReceived)} para cubrir la venta.</p>}
           {expectedChange > 0 ? <section className="space-y-2">
-            <label className="flex min-h-12 items-center gap-3 rounded-xl border border-cream-200 bg-white px-3 font-semibold"><input type="checkbox" checked={tipMode === "ALL"} onChange={(event) => { setTipMode(event.target.checked ? "ALL" : "NONE"); setPadTarget(null); }} className="size-5 accent-caramel-600" /> El cliente no quiere el cambio</label>
+            <FormSwitch checked={tipMode === "ALL"} onCheckedChange={(next) => { setTipMode(next ? "ALL" : "NONE"); setPadTarget(null); }} label="El cliente no quiere el cambio" className="min-h-12 rounded-xl border border-cream-200 bg-white px-3" />
             <button type="button" onClick={() => { setTipMode("PARTIAL"); setPartialChange(Math.min(partialChange, expectedChange)); setPadTarget(padTarget === "change" ? null : "change"); }} className="min-h-12 w-full rounded-xl border border-cream-200 bg-white px-3 text-left font-semibold">Devolví otra cantidad…</button>
             {padTarget === "change" ? <CashPad value={padValue} onChange={setPadValue} label={padLabel} /> : null}
             {changeGiven > expectedChange ? <p className="text-sm font-semibold text-danger-500">No puedes devolver más que el cambio esperado.</p> : null}

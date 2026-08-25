@@ -16,3 +16,12 @@ export { moveSavings, registerWithdrawal, updateSavingSettings } from "./wallet"
 export type { WalletActionState } from "./wallet";
 export { changeGoalStatus, contributeToGoal, exitGoalMoney, saveGoal } from "./goals";
 export type { GoalActionState } from "./goals";
+export { ensureStreakUpToDate } from "./streak";
+export type { StreakActionResult } from "./streak";
+export { deleteReward, redeemReward, saveReward, updateRedemption } from "./rewards";
+export type { RewardActionResult } from "./rewards";
+export {
+  deleteAchievement, deleteChallenge, deleteLevel, finishExpiredChallenges, saveAchievement,
+  saveChallenge, saveGamificationRule, saveLevel, updateProtectorMax,
+} from "./gamification";
+export type { GamificationActionResult } from "./gamification";

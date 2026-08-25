@@ -6,7 +6,7 @@ create table app_settings (
   family_name        text        not null default 'Familia',
   timezone           text        not null default 'America/Bogota',
   currency           text        not null default 'COP',
-  protector_max      integer     not null default 3 check (protector_max >= 0),
+  protector_max      integer     not null default 3 check (protector_max between 0 and 3),
   low_stock_alerts   boolean     not null default true,
   celebrations       boolean     not null default true,
   updated_at         timestamptz not null default now()
@@ -319,7 +319,7 @@ create table child_streaks (
   child_id             uuid primary key references profiles(id) on delete cascade,
   current_streak       integer not null default 0,
   best_streak          integer not null default 0,
-  protectors_available integer not null default 0,
+  protectors_available integer not null default 3,
   last_activity_date   date,
   last_evaluated_date  date,
   updated_at           timestamptz not null default now()

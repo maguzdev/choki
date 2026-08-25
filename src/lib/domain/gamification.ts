@@ -26,7 +26,7 @@ export function xpAndPointsForSale(
     if (!rule.active) continue;
     const multiplier = rule.event === "UNIT_SOLD" ? sale.unitsTotal : 1;
     const description = rule.event === "UNIT_SOLD"
-      ? `${sale.unitsTotal} productos vendidos`
+      ? sale.unitsTotal === 1 ? "1 producto vendido" : `${sale.unitsTotal} productos vendidos`
       : "Venta completada";
     if (rule.xp !== 0) xp.push({ amount: rule.xp * multiplier, reason: rule.event, description });
     if (rule.points !== 0) points.push({ amount: rule.points * multiplier, reason: rule.event, description });
