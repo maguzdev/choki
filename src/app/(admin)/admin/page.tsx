@@ -1,4 +1,4 @@
-import { ShieldCheck } from "lucide-react";
+import { Eye, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -20,7 +20,7 @@ export default async function AdminHomePage() {
         <p className="mt-3 leading-7 text-choco-600">
           El acceso administrativo está protegido. Ya puedes registrar ventas como padre; el panel completo llegará en su fase correspondiente.
         </p>
-        <Link href="/admin/vender" className={buttonVariants({ className: "mt-5 min-h-12 w-full sm:w-auto" })}>Registrar venta</Link>
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row"><Link href="/admin/vender" className={buttonVariants({ className: "min-h-12" })}>Registrar venta</Link><Link href="/admin/perfiles" className={buttonVariants({ variant: "outline", className: "min-h-12" })}><Eye aria-hidden="true" /> Ver billeteras y metas</Link></div>
       </section>
     </main>
   );

@@ -4,4 +4,5 @@ export * from "./input";
 export * from "./select";
 export * from "./sheet";
 export * from "./sonner";
+export * from "./switch";
 export * from "./tabs";

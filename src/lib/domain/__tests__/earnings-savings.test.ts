@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { allocateEarnings } from "../earnings";
-import { createGoalContributionMovement, createWithdrawalMovement, splitEarning } from "../savings";
+import { createGoalContributionMovement, createGoalExitMovement, createSavingMovement, createWithdrawalMovement, splitEarning } from "../savings";
 
 const rules = [
   { childId: "ana", percent: 50, sortOrder: 1 },
@@ -49,9 +49,17 @@ describe("savings", () => {
     expect(previous).toEqual({ toSavings: 100, toAvailable: 900 });
   });
   it("26. aporta a una meta desde ahorro con los tres deltas correctos", () => {
-    expect(createGoalContributionMovement({ ...base, goalId: "goal", source: "SAVINGS", amount: 500, sourceBalance: 1000 })).toMatchObject({ available_delta: 0, savings_delta: -500, goal_delta: 500 });
+    expect(createGoalContributionMovement({ ...base, goalId: "goal", source: "SAVINGS", amount: 500, sourceBalance: 1000 })).toMatchObject({ type: "GOAL_IN", available_delta: 0, savings_delta: -500, goal_delta: 500 });
   });
   it("27. impide retirar más que el disponible", () => {
     expect(() => createWithdrawalMovement({ ...base, amount: 501, availableBalance: 500 })).toThrow();
+  });
+  it("mueve dinero entre disponible y ahorro sin cambiar el total", () => {
+    expect(createSavingMovement({ ...base, direction: "IN", amount: 300, sourceBalance: 500 })).toMatchObject({ type: "SAVING_IN", available_delta: -300, savings_delta: 300 });
+    expect(createSavingMovement({ ...base, direction: "OUT", amount: 200, sourceBalance: 300 })).toMatchObject({ type: "SAVING_OUT", available_delta: 200, savings_delta: -200 });
+  });
+  it("devuelve o gasta dinero de una meta con deltas exactos", () => {
+    expect(createGoalExitMovement({ ...base, goalId: "goal", action: "TO_AVAILABLE", amount: 400, goalBalance: 500 })).toMatchObject({ type: "GOAL_OUT", available_delta: 400, goal_delta: -400 });
+    expect(createGoalExitMovement({ ...base, goalId: "goal", action: "SPEND", amount: 500, goalBalance: 500 })).toMatchObject({ type: "GOAL_SPEND", available_delta: 0, savings_delta: 0, goal_delta: -500 });
   });
 });

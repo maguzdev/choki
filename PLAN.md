@@ -162,7 +162,9 @@ choki/
 │       ├── 0001_schema.sql
 │       ├── 0002_views.sql
 │       ├── 0003_rls.sql
-│       └── 0004_functions.sql
+│       ├── 0004_functions.sql
+│       ├── 0005_prevent_negative_sale_stock.sql
+│       └── 0006_wallet_commit.sql
 ├── scripts/
 │   ├── seed.ts             # crea usuarios de auth + datos semilla
 │   └── generate-icons.ts   # SVG galleta → PNG (sharp)
@@ -790,7 +792,7 @@ grant select on v_xp_ranking to authenticated;
 
 ### C.5 Funciones de escritura atómica — `0004_functions.sql`
 
-Cuatro funciones. Todas reciben un `jsonb` con las filas **ya calculadas** por la capa de dominio y se ejecutan con `service_role` (una función = una transacción).
+Las funciones de escritura reciben un `jsonb` con las filas **ya calculadas** por la capa de dominio y se ejecutan con `service_role` (una función = una transacción).
 
 ```sql
 -- 1) Registrar una venta completa
@@ -901,6 +903,12 @@ begin
         last_evaluated_date = excluded.last_evaluated_date,
         updated_at = now();
 end $$;
+
+-- 5) Movimiento de billetera + efecto/notificación de meta
+-- `wallet_commit` bloquea la fila del niño, vuelve a sumar disponible/ahorro/meta,
+-- rechaza deltas que dejarían un bolsillo negativo (salvo reversión/ajuste), inserta
+-- el movimiento y confirma en la misma transacción el autocompletado y las
+-- notificaciones GOAL_NEAR/GOAL_COMPLETED que reciba en el payload.
 ```
 
 > **Contrato del payload (crítico).** `jsonb_populate_recordset(null::tabla, …)` construye filas a partir de las claves del JSON: una clave ausente se convierte en `NULL`, y un `NULL` explícito **anula el `DEFAULT`** de la columna. Por tanto, los constructores de payload de TypeScript deben incluir **todas** las columnas `NOT NULL` de cada tabla, incluidas `id`, `created_at` y las que tienen `default` (`created_at: new Date().toISOString()`). Los tipos `Database['public']['Tables'][T]['Insert']` generados no bastan (marcan esas columnas como opcionales): usar `Row` como tipo del objeto que se envía a la RPC, para que el compilador exija cada campo.
@@ -1319,6 +1327,7 @@ Tras entrar: `CHILD` → `/`; `PARENT` → `/admin`. El middleware redirige `/` 
 - Números importantes grandes (`text-3xl`/`text-4xl`, `tabular-nums`).
 - `padding-bottom` seguro para barras fijas: `env(safe-area-inset-bottom)`.
 - Teclado numérico propio en el POS (no `<input type="number">`, que abre teclados inconsistentes y permite basura). Donde sí haya input numérico (admin), usar `inputMode="numeric"` + `pattern="[0-9]*"`.
+- En móvil, `input`, `select` y `textarea` mantienen al menos 16 px para evitar el zoom automático de iOS al recibir foco; no se restringe el zoom manual del usuario.
 - Sin scroll horizontal en ninguna vista. Tablas del admin: contenedor `overflow-x-auto`.
 - Listas largas: sin virtualización (el catálogo familiar es de decenas de filas).
 
@@ -1685,15 +1694,16 @@ Además, los **constructores de payload**: `buildSaleCommitPayload(...)` y `buil
 
 **Objetivo.** El niño entiende y administra su dinero.
 
-**Áreas.** `app/(child)/dinero/page.tsx`, `app/(child)/metas/**`, `src/lib/actions/{wallet,goals}.ts`, `src/lib/data/wallet.ts`, `components/child/{WalletCards,SavingSettingsForm,WithdrawSheet,GoalCard,GoalContributeSheet}`.
+**Áreas.** `app/(child)/dinero/page.tsx`, `app/(child)/metas/**`, `app/(admin)/admin/perfiles/page.tsx` (solo lectura), `src/lib/actions/{wallet,goals}.ts`, `src/lib/data/wallet.ts`, `components/child/{WalletCards,SavingSettingsForm,WithdrawSheet,GoalCard,GoalContributeSheet}`, `supabase/migrations/0006_wallet_commit.sql`.
 
 **Funcionalidades.**
-1. Pantalla "Mi dinero": disponible, ahorro, en metas, ganancia histórica (con desglose propia/familiar) y extracto cronológico legible.
+1. Pantalla "Mi dinero": disponible, ahorro, en metas, ganancia histórica (con desglose propia/familiar) y extracto cronológico legible, filtrable por mes y agrupado por día.
 2. Configurar ahorro automático: interruptor + porcentaje (chips 0/5/10/20/30 % + personalizado), con el aviso "solo afecta a lo que ganes desde ahora".
 3. Mover a ahorro / sacar del ahorro / registrar retiro ("Usé mi dinero"), todos con validación de saldo (salvo reversiones).
 4. Metas: crear, editar, pausar, completar, archivar; aportar desde disponible o desde ahorro; sacar dinero de una meta; marcar "ya la compré".
 5. Autocompletado de meta al alcanzar el objetivo + notificación + celebración.
 6. Vista de solo lectura de metas y billetera de cada niño en `/admin/perfiles`.
+7. `wallet_commit` confirma atómicamente movimientos, autocompletado y notificaciones, y vuelve a validar los saldos para impedir dobles retiros concurrentes.
 
 **Dependencias.** Fases 3, 6.
 
@@ -1963,7 +1973,7 @@ Recorrer con los datos semilla, en un celular real o en el emulador de dispositi
 - [ ] 12. Costo y utilidad calculados con el costo del momento; cambiar el costo del producto después **no** altera la utilidad histórica.
 - [ ] 13. Venta de padre: se distribuye 50/50, sin XP ni puntos ni racha para los niños.
 - [ ] 14. El dashboard del niño separa ganancia propia, familiar y total.
-- [ ] 15. Vender más unidades de las que hay en stock no bloquea la venta y muestra el aviso.
+- [ ] 15. Al alcanzar el stock disponible, el POS bloquea más unidades; una petición desactualizada también se rechaza sin efectos parciales.
 
 **Dinero del niño**
 
@@ -2053,7 +2063,7 @@ npm run dev             # http://localhost:3000
 
 ### L.6 Fallback sin Docker
 
-Si Docker no está disponible: crear un proyecto gratuito en supabase.com, apuntar `NEXT_PUBLIC_SUPABASE_URL` y las claves a ese proyecto, aplicar las migraciones con `npx supabase db push --linked` (o pegando el SQL en el editor en el orden 0001→0004) y ejecutar `npm run seed`. `npm run types` pasa a ser `supabase gen types typescript --linked`.
+Si Docker no está disponible: crear un proyecto gratuito en supabase.com, apuntar `NEXT_PUBLIC_SUPABASE_URL` y las claves a ese proyecto, aplicar las migraciones con `npx supabase db push --linked` (o pegando todo el SQL en el editor en orden numérico) y ejecutar `npm run seed`. `npm run types` pasa a ser `supabase gen types typescript --linked`.
 
 ### L.7 Documentación que debe quedar en el `README.md`
 

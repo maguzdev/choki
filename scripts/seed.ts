@@ -171,6 +171,39 @@ async function main() {
     if (streakError) throw streakError;
   }
 
+  const defaultGoals = new Map([
+    ["Niño A", { name: "Audífonos", emoji: "🎧", targetAmount: 350_000 }],
+    ["Niño B", { name: "Patineta", emoji: "🛹", targetAmount: 200_000 }],
+  ]);
+  for (const { definition, user } of createdProfiles) {
+    if (definition.type !== "CHILD") continue;
+    const goal = defaultGoals.get(definition.name);
+    if (!goal) continue;
+    const { data: existingGoal, error: goalLookupError } = await supabase
+      .from("goals")
+      .select("id")
+      .eq("child_id", user.id)
+      .eq("name", goal.name)
+      .limit(1)
+      .maybeSingle();
+    if (goalLookupError) throw goalLookupError;
+    if (!existingGoal) {
+      const { error: goalError } = await supabase.from("goals").insert({
+        child_id: user.id,
+        name: goal.name,
+        emoji: goal.emoji,
+        description: "Meta de ejemplo para probar el ahorro.",
+        target_amount: goal.targetAmount,
+        target_date: null,
+        priority: 1,
+        status: "ACTIVE",
+        is_primary: true,
+        completed_at: null,
+      });
+      if (goalError) throw goalError;
+    }
+  }
+
   const [{ error: rulesError }, { error: levelsError }, { error: achievementsError }] = await Promise.all([
     supabase.from("gamification_rules").upsert([
       { event: "SALE_COMPLETED", xp_amount: 10, points_amount: 5, active: true },

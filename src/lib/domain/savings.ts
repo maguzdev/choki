@@ -74,7 +74,7 @@ export function createGoalContributionMovement(input: MovementBase & {
     available_delta: input.source === "AVAILABLE" ? -input.amount : 0,
     savings_delta: input.source === "SAVINGS" ? -input.amount : 0,
     goal_delta: input.amount, goal_id: input.goalId, reference_id: input.goalId,
-    reference_type: "GOAL", type: "GOAL_CONTRIBUTION",
+    reference_type: "GOAL", type: "GOAL_IN",
   };
 }
 

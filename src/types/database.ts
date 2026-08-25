@@ -2004,6 +2004,7 @@ export type Database = {
       sale_commit: { Args: { p: Json }; Returns: undefined }
       sale_void: { Args: { p: Json }; Returns: undefined }
       streak_sync: { Args: { p: Json }; Returns: undefined }
+      wallet_commit: { Args: { p: Json }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
