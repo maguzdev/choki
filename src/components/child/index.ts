@@ -8,3 +8,5 @@ export * from "./goal-manager";
 export * from "./activity-calendar";
 export * from "./gamification-cards";
 export * from "./reward-catalog";
+export * from "./dashboard-cards";
+export * from "./sales-history";

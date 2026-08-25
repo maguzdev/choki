@@ -50,6 +50,8 @@ function DayGroup<T extends DatedItem>({
   initiallyExpanded,
   renderItem,
   getKey,
+  singularLabel = "movimiento",
+  pluralLabel = "movimientos",
 }: {
   idPrefix: string;
   localDate: string;
@@ -58,6 +60,8 @@ function DayGroup<T extends DatedItem>({
   initiallyExpanded: boolean;
   renderItem: (item: T) => ReactNode;
   getKey: (item: T) => string;
+  singularLabel?: string;
+  pluralLabel?: string;
 }) {
   const [expanded, setExpanded] = useState(initiallyExpanded);
   const [showAll, setShowAll] = useState(false);
@@ -77,7 +81,7 @@ function DayGroup<T extends DatedItem>({
         <span>
           <span id={dayId} className="block font-display text-xl font-bold text-choco-800">{dayLabel(localDate, today)}</span>
           <span className="text-xs font-semibold text-choco-600">
-            {items.length} {items.length === 1 ? "movimiento" : "movimientos"}
+            {items.length} {items.length === 1 ? singularLabel : pluralLabel}
           </span>
         </span>
         <ChevronDown aria-hidden="true" className={`size-5 shrink-0 text-caramel-600 transition-transform ${expanded ? "rotate-180" : ""}`} />
@@ -87,7 +91,7 @@ function DayGroup<T extends DatedItem>({
           {visibleItems.map((item) => <div key={getKey(item)}>{renderItem(item)}</div>)}
           {hiddenCount > 0 ? (
             <Button type="button" variant="outline" className="min-h-11 w-full" onClick={() => setShowAll(true)}>
-              Ver {hiddenCount} {hiddenCount === 1 ? "movimiento anterior" : "movimientos anteriores"}
+              Ver {hiddenCount} {hiddenCount === 1 ? `${singularLabel} anterior` : `${pluralLabel} anteriores`}
             </Button>
           ) : showAll && items.length > 5 ? (
             <Button type="button" variant="ghost" className="min-h-11 w-full" onClick={() => setShowAll(false)}>
@@ -98,6 +102,41 @@ function DayGroup<T extends DatedItem>({
       ) : null}
     </section>
   );
+}
+
+export function DailyGroupedHistory<T extends DatedItem>({
+  idPrefix,
+  items,
+  today,
+  emptyMessage,
+  renderItem,
+  getKey,
+  singularLabel,
+  pluralLabel,
+}: {
+  idPrefix: string;
+  items: T[];
+  today: string;
+  emptyMessage: string;
+  renderItem: (item: T) => ReactNode;
+  getKey: (item: T) => string;
+  singularLabel?: string;
+  pluralLabel?: string;
+}) {
+  const groups = useMemo(() => {
+    const grouped = new Map<string, T[]>();
+    for (const item of items) {
+      const day = grouped.get(item.localDate) ?? [];
+      day.push(item);
+      grouped.set(item.localDate, day);
+    }
+    return [...grouped.entries()];
+  }, [items]);
+
+  return <div className="space-y-3">
+    {groups.map(([localDate, dayItems], index) => <DayGroup key={localDate} idPrefix={idPrefix} localDate={localDate} items={dayItems} today={today} initiallyExpanded={index === 0} renderItem={renderItem} getKey={getKey} singularLabel={singularLabel} pluralLabel={pluralLabel} />)}
+    {groups.length === 0 ? <p className="rounded-xl border border-dashed border-cream-200 bg-cream-50 p-6 text-center text-sm text-choco-600">{emptyMessage}.</p> : null}
+  </div>;
 }
 
 export function MonthlyHistory<T extends DatedItem>({

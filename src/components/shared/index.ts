@@ -1,1 +1,2 @@
-// Componentes compartidos se implementan en sus fases correspondientes.
+export * from "./monthly-history";
+export * from "./stats-ui";

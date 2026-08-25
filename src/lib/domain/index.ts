@@ -7,4 +7,5 @@ export * from "./payloads";
 export * from "./sale";
 export * from "./savings";
 export * from "./streak";
+export * from "./stats";
 export * from "./types";

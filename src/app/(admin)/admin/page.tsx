@@ -1,27 +1,27 @@
-import { Eye, Gift, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowRight, PackageSearch, ReceiptText, ShoppingBasket, Users } from "lucide-react";
 import Link from "next/link";
 
+import { KpiGrid, SalesTable, SimpleBarChart } from "@/components/admin";
+import { PeriodFilter } from "@/components/shared";
 import { buttonVariants } from "@/components/ui/button";
 import { requireParent } from "@/lib/auth/guards";
+import { getAdminDashboardData, type StatsParams } from "@/lib/data/stats";
+import { formatCOP } from "@/lib/domain/money";
 
-export default async function AdminHomePage() {
+export default async function AdminHomePage({ searchParams }: { searchParams: Promise<StatsParams> }) {
   const profile = await requireParent();
+  const data = await getAdminDashboardData(await searchParams);
 
-  return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8">
-      <section className="rounded-card border border-cream-200 bg-cream-50 p-6 shadow-soft">
-        <ShieldCheck aria-hidden="true" className="size-8 text-caramel-600" />
-        <p className="mt-5 font-display text-lg font-semibold text-caramel-600">
-          Sesión de padre activa
-        </p>
-        <h1 className="mt-1 font-display text-4xl font-bold text-choco-800">
-          Bienvenido, {profile.name}
-        </h1>
-        <p className="mt-3 leading-7 text-choco-600">
-          El acceso administrativo está protegido. Ya puedes registrar ventas como padre; el panel completo llegará en su fase correspondiente.
-        </p>
-        <div className="mt-5 grid gap-2 sm:grid-cols-2"><Link href="/admin/vender" className={buttonVariants({ className: "min-h-12 sm:col-span-2" })}>Registrar venta</Link><Link href="/admin/gamificacion" className={buttonVariants({ variant: "outline", className: "min-h-12" })}><Sparkles aria-hidden="true" /> Gamificación</Link><Link href="/admin/recompensas" className={buttonVariants({ variant: "outline", className: "min-h-12" })}><Gift aria-hidden="true" /> Recompensas</Link><Link href="/admin/perfiles" className={buttonVariants({ variant: "outline", className: "min-h-12 sm:col-span-2" })}><Eye aria-hidden="true" /> Ver billeteras y metas</Link></div>
-      </section>
-    </main>
-  );
+  return <main className="mx-auto w-full max-w-7xl px-4 py-6 pb-12 text-choco-800">
+    <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="font-semibold text-caramel-600">Panel de la familia</p><h1 className="font-display text-4xl font-bold">Hola, {profile.name}</h1><p className="mt-1 text-sm text-choco-600">Ventas, ganancia e inventario en un solo lugar.</p></div><Link href="/admin/vender" className={buttonVariants({ className: "min-h-12" })}>Registrar venta</Link></header>
+    <PeriodFilter range={data.range} today={data.today} people={data.people} selectedPerson={data.selectedPerson} />
+    <div className="mt-5"><KpiGrid data={data.kpis} /></div>
+    <section className="mt-6 grid min-w-0 gap-4 lg:grid-cols-2"><SimpleBarChart title="Ventas por día" data={data.salesByDate} /><SimpleBarChart title="Utilidad por día" data={data.profitByDate} /></section>
+    <section className="mt-7 grid gap-5 lg:grid-cols-2">
+      <div><div className="mb-3 flex items-center gap-2"><Users className="size-5 text-caramel-600" /><h2 className="font-display text-2xl font-bold">Ventas por persona</h2></div><div className="space-y-2">{data.salesByPerson.map((person) => <article key={person.id} className="rounded-xl border border-cream-200 bg-cream-50 p-4 shadow-soft"><div className="flex items-center justify-between gap-3"><p className="font-bold">{person.emoji} {person.name}</p><span className="text-sm font-semibold text-choco-600">{person.sales} {person.sales === 1 ? "venta" : "ventas"}</span></div><div className="mt-2 grid grid-cols-2 gap-2 text-sm"><p>Vendido<br /><strong>{formatCOP(person.revenue)}</strong></p><p className="text-right">Ganancia<br /><strong className="text-success-500">{formatCOP(person.profit)}</strong></p></div></article>)}{data.salesByPerson.length === 0 ? <p className="rounded-xl bg-cream-50 p-4 text-sm text-choco-600">No hay ventas completadas para comparar.</p> : null}</div></div>
+      <div><div className="mb-3 flex items-center gap-2"><ReceiptText className="size-5 text-goal-500" /><h2 className="font-display text-2xl font-bold">Ganancia de los niños</h2></div><div className="space-y-2">{data.childEarnings.map((child) => <article key={child.id} className="rounded-xl border border-cream-200 bg-cream-50 p-4 shadow-soft"><p className="font-bold">{child.emoji} {child.name}</p><div className="mt-2 grid grid-cols-3 gap-2 text-xs text-choco-600"><p>Propia<br /><strong className="text-sm text-choco-800">{formatCOP(child.own)}</strong></p><p>Familiar<br /><strong className="text-sm text-choco-800">{formatCOP(child.family)}</strong></p><p className="text-right">Total<br /><strong className="text-sm text-success-500">{formatCOP(child.total)}</strong></p></div></article>)}</div></div>
+    </section>
+    <section className="mt-7 grid min-w-0 gap-5 lg:grid-cols-2"><div className="min-w-0"><div className="mb-3 flex items-center gap-2"><ShoppingBasket className="size-5 text-xp-500" /><h2 className="font-display text-2xl font-bold">Productos más vendidos</h2></div><div className="min-w-0 rounded-card border border-cream-200 bg-cream-50 p-4 shadow-soft">{data.topProducts.length ? <ol className="min-w-0 space-y-3">{data.topProducts.map((product, index) => <li key={product.id} className="flex min-w-0 items-center gap-2"><span className="w-5 shrink-0 font-display text-xl font-bold text-caramel-600">{index + 1}</span><span className="shrink-0 text-2xl">{product.emoji}</span><div className="min-w-0 flex-1"><p className="truncate font-bold">{product.name}</p><p className="truncate text-xs text-choco-600">{product.units} uds · {formatCOP(product.revenue)} vendidos</p></div><strong className="shrink-0 text-xs text-success-500 sm:text-sm">{formatCOP(product.profit)}</strong></li>)}</ol> : <p className="text-sm text-choco-600">No hay productos vendidos en este periodo.</p>}</div></div><div className="min-w-0"><div className="mb-3 flex items-center gap-2"><AlertTriangle className="size-5 text-danger-500" /><h2 className="font-display text-2xl font-bold">Alertas</h2></div><div className="min-w-0 space-y-2">{data.lowStock.map((product) => <article key={product.id} className="min-w-0 rounded-xl border border-danger-500/20 bg-danger-500/5 p-3"><p className="break-words font-bold">{product.emoji} {product.name}</p><p className="text-sm text-choco-600">Stock {product.stock} · mínimo {product.minStock}</p></article>)}{data.negativeBalances.map((child) => <article key={child.id} className="rounded-xl border border-danger-500/20 bg-danger-500/5 p-3"><p className="font-bold">{child.emoji} Saldo negativo de {child.name}</p><p className="text-sm text-choco-600">Disponible {formatCOP(child.available)} · ahorro {formatCOP(child.savings)} · metas {formatCOP(child.inGoals)}</p></article>)}{data.lowStock.length === 0 && data.negativeBalances.length === 0 ? <p className="rounded-xl bg-success-500/10 p-4 text-sm font-semibold text-success-500">Sin alertas de inventario ni saldos negativos.</p> : null}<Link href="/admin/inventario" className={buttonVariants({ variant: "outline", className: "min-h-11 w-full" })}><PackageSearch className="size-4" /> Revisar inventario</Link></div></div></section>
+    <section className="mt-7"><div className="mb-3 flex items-center justify-between gap-3"><div><h2 className="font-display text-2xl font-bold">Ventas recientes</h2><p className="text-sm text-choco-600">Incluye ventas anuladas como referencia, pero no en los indicadores.</p></div><Link href={`/admin/ventas?period=${data.range.preset}&from=${data.range.from}&to=${data.range.to}&person=${data.selectedPerson}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>Ver todas <ArrowRight /></Link></div><SalesTable sales={data.sales.slice(0, 5)} /></section>
+  </main>;
 }
