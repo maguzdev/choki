@@ -60,6 +60,12 @@ export type SaleDetailData = {
   sale: SaleListItem & { cashReceived: number | null; changeGiven: number | null; note: string | null; voidedAt: string | null; voidReason: string | null };
   items: Array<{ id: string; productName: string; productEmoji: string; quantity: number; unitPrice: number; unitCost: number; lineTotal: number; lineCost: number; lineMargin: number }>;
   allocations: Array<{ id: string; childName: string; childEmoji: string; source: "OWN_SALE" | "FAMILY_SHARE"; sharePercent: number | null; marginAmount: number; tipAmount: number; totalAmount: number; reversed: boolean }>;
+  reversal: {
+    stockUnits: number;
+    xp: number;
+    points: number;
+    money: Array<{ childName: string; childEmoji: string; total: number; available: number; savings: number }>;
+  };
 };
 
 async function getTimeContext(params: StatsParams) {
@@ -183,14 +189,15 @@ async function getAdminSalesRows(params: StatsParams) {
 
 export async function getAdminDashboardData(params: StatsParams): Promise<AdminDashboardData> {
   const extraClient = await createServerSupabaseClient();
-  const [context, productsResult, balancesResult] = await Promise.all([
+  const [context, productsResult, balancesResult, settingsResult] = await Promise.all([
     getAdminSalesRows(params),
     extraClient.from("products").select("id, name, emoji, stock, min_stock, avg_cost, active").eq("active", true).order("sort_order"),
     extraClient.from("v_child_balances").select("child_id, available, savings, in_goals"),
+    extraClient.from("app_settings").select("low_stock_alerts").eq("id", 1).maybeSingle(),
   ]);
   const { sales } = context;
   const childProfiles = context.people.filter((person) => person.type === "CHILD");
-  const error = productsResult.error || balancesResult.error;
+  const error = productsResult.error || balancesResult.error || settingsResult.error;
   if (error) throw new Error("No fue posible completar los indicadores del panel.");
   const completedIds = new Set(sales.filter((sale) => sale.status === "COMPLETED").map((sale) => sale.id));
   const metrics = sales.map(asSaleMetric);
@@ -235,7 +242,7 @@ export async function getAdminDashboardData(params: StatsParams): Promise<AdminD
     salesByPerson: [...personTotals.values()].filter((person) => person.sales > 0).sort((a, b) => b.revenue - a.revenue),
     childEarnings: [...earningsByChild.values()],
     topProducts: [...productTotals.values()].sort((a, b) => b.units - a.units || b.revenue - a.revenue).slice(0, 5),
-    lowStock: products.filter((product) => product.stock <= product.min_stock).map((product) => ({ id: product.id, name: product.name, emoji: product.emoji, stock: product.stock, minStock: product.min_stock })),
+    lowStock: settingsResult.data?.low_stock_alerts === false ? [] : products.filter((product) => product.stock <= product.min_stock).map((product) => ({ id: product.id, name: product.name, emoji: product.emoji, stock: product.stock, minStock: product.min_stock })),
     negativeBalances, sales,
   };
 }
@@ -247,13 +254,16 @@ export async function getAdminSalesData(params: StatsParams) {
 
 export async function getAdminSaleDetail(saleId: string): Promise<SaleDetailData | null> {
   const supabase = await createServerSupabaseClient();
-  const [saleResult, itemsResult, allocationsResult, profilesResult] = await Promise.all([
+  const [saleResult, itemsResult, allocationsResult, profilesResult, moneyResult, xpResult, pointsResult] = await Promise.all([
     supabase.from("sales").select("id, seller_id, seller_type, sold_at, local_date, payment_method, items_total, cost_total, margin_total, cash_received, change_given, tip_total, earnings_total, units_total, status, note, voided_at, void_reason").eq("id", saleId).maybeSingle(),
     supabase.from("sale_items").select("id, product_name, product_emoji, quantity, unit_price, unit_cost, line_total, line_cost, line_margin").eq("sale_id", saleId).order("product_name"),
     supabase.from("earning_allocations").select("id, child_id, source, share_percent, margin_amount, tip_amount, total_amount, reversed").eq("sale_id", saleId),
     supabase.from("profiles").select("id, name, avatar_emoji, type"),
+    supabase.from("money_movements").select("child_id, earning_amount, available_delta, savings_delta").eq("reference_type", "SALE").eq("reference_id", saleId).eq("type", "EARNING"),
+    supabase.from("xp_movements").select("amount").eq("reference_type", "SALE").eq("reference_id", saleId),
+    supabase.from("point_movements").select("amount").eq("reference_type", "SALE").eq("reference_id", saleId),
   ]);
-  const error = saleResult.error || itemsResult.error || allocationsResult.error || profilesResult.error;
+  const error = saleResult.error || itemsResult.error || allocationsResult.error || profilesResult.error || moneyResult.error || xpResult.error || pointsResult.error;
   if (error) throw new Error("No fue posible cargar el detalle de la venta.");
   if (!saleResult.data) return null;
   const profiles = new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile]));
@@ -268,5 +278,11 @@ export async function getAdminSaleDetail(saleId: string): Promise<SaleDetailData
     },
     items: (itemsResult.data ?? []).map((item) => ({ id: item.id, productName: item.product_name, productEmoji: item.product_emoji, quantity: item.quantity, unitPrice: item.unit_price, unitCost: Number(item.unit_cost), lineTotal: item.line_total, lineCost: Number(item.line_cost), lineMargin: item.line_margin })),
     allocations: (allocationsResult.data ?? []).map((allocation) => { const child = profiles.get(allocation.child_id); return { id: allocation.id, childName: child?.name ?? "Niño", childEmoji: child?.avatar_emoji ?? "🙂", source: allocation.source as "OWN_SALE" | "FAMILY_SHARE", sharePercent: allocation.share_percent == null ? null : Number(allocation.share_percent), marginAmount: allocation.margin_amount, tipAmount: allocation.tip_amount, totalAmount: allocation.total_amount, reversed: allocation.reversed }; }),
+    reversal: {
+      stockUnits: (itemsResult.data ?? []).reduce((sum, item) => sum + item.quantity, 0),
+      xp: (xpResult.data ?? []).reduce((sum, movement) => sum + movement.amount, 0),
+      points: (pointsResult.data ?? []).reduce((sum, movement) => sum + movement.amount, 0),
+      money: (moneyResult.data ?? []).map((movement) => { const child = profiles.get(movement.child_id); return { childName: child?.name ?? "Niño", childEmoji: child?.avatar_emoji ?? "🙂", total: movement.earning_amount, available: movement.available_delta, savings: movement.savings_delta }; }),
+    },
   };
 }

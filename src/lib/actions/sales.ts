@@ -5,10 +5,11 @@ import { revalidatePath } from "next/cache";
 import { requireChildSelf, requireParent } from "@/lib/auth/guards";
 import { toLocalDate } from "@/lib/domain/dates";
 import { evaluateAchievements, evaluateChallenges, levelFor, xpAndPointsForSale, type AchievementCondition, type Challenge, type ChallengeCondition, type GamificationRule } from "@/lib/domain/gamification";
-import { buildSaleCommitPayload, type ChallengeProgressDraft, type NotificationDraft } from "@/lib/domain/payloads";
+import { buildSaleCommitPayload, buildSaleVoidPayload, type ChallengeProgressDraft, type NotificationDraft } from "@/lib/domain/payloads";
 import { computeCashOutcome, computeSaleTotals } from "@/lib/domain/sale";
 import { replayStreak } from "@/lib/domain/streak";
 import { registerSaleSchema, type RegisterSaleInput } from "@/lib/schemas/sale";
+import { voidSaleSchema } from "@/lib/schemas/settings";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import type { Database, Json } from "@/types/database";
 
@@ -37,6 +38,8 @@ export type SaleSummary = {
 export type SaleActionResult =
   | { status: "success" | "duplicate"; message?: string; summary: SaleSummary }
   | { status: "error"; message: string };
+
+export type VoidSaleActionResult = { status: "success" | "error"; message: string };
 
 function revalidateSalePaths() {
   for (const path of [
@@ -120,7 +123,7 @@ export async function registerSale(rawInput: RegisterSaleInput): Promise<SaleAct
 
   const productIds = input.items.map((item) => item.productId);
   const [settingsResult, productsResult, childrenResult, parentsResult, savingResult, splitResult] = await Promise.all([
-    admin.from("app_settings").select("timezone, protector_max, celebrations").eq("id", 1).maybeSingle(),
+    admin.from("app_settings").select("timezone, protector_max, celebrations, low_stock_alerts").eq("id", 1).maybeSingle(),
     admin.from("products").select("id, name, emoji, price, cost, avg_cost, stock, min_stock, active").in("id", productIds),
     admin.from("profiles").select("id, name, sort_order").eq("type", "CHILD").eq("active", true).order("sort_order"),
     admin.from("profiles").select("id").eq("type", "PARENT").eq("active", true),
@@ -362,7 +365,7 @@ export async function registerSale(rawInput: RegisterSaleInput): Promise<SaleAct
   for (const line of lines) {
     const product = productsById.get(line.productId)!;
     const stockAfter = product.stock - line.quantity;
-    if (stockAfter <= product.min_stock) {
+    if (settingsResult.data.low_stock_alerts && stockAfter <= product.min_stock) {
       for (const parent of parentsResult.data) notifications.push({
         profileId: parent.id,
         type: "LOW_STOCK",
@@ -437,4 +440,136 @@ export async function registerSale(rawInput: RegisterSaleInput): Promise<SaleAct
       duplicate: false,
     },
   };
+}
+
+export async function voidSale(saleId: string, reason: string): Promise<VoidSaleActionResult> {
+  const parent = await requireParent();
+  const parsed = voidSaleSchema.safeParse({ saleId, reason });
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Revisa el motivo de la anulación." };
+
+  const admin = createAdminSupabaseClient();
+  const [saleResult, settingsResult] = await Promise.all([
+    admin.from("sales").select("*").eq("id", parsed.data.saleId).maybeSingle(),
+    admin.from("app_settings").select("timezone, protector_max").eq("id", 1).maybeSingle(),
+  ]);
+  if (saleResult.error || !saleResult.data) return { status: "error", message: "La venta ya no existe." };
+  if (settingsResult.error || !settingsResult.data) return { status: "error", message: "No fue posible cargar la configuración familiar." };
+  if (saleResult.data.status !== "COMPLETED") return { status: "error", message: "Esta venta ya fue anulada y no puede anularse nuevamente." };
+  const sale = saleResult.data;
+
+  const [itemsResult, allocationsResult, moneyResult, xpResult, pointsResult] = await Promise.all([
+    admin.from("sale_items").select("*").eq("sale_id", sale.id),
+    admin.from("earning_allocations").select("*").eq("sale_id", sale.id),
+    admin.from("money_movements").select("*").eq("reference_type", "SALE").eq("reference_id", sale.id).eq("type", "EARNING"),
+    admin.from("xp_movements").select("*").eq("reference_type", "SALE").eq("reference_id", sale.id),
+    admin.from("point_movements").select("*").eq("reference_type", "SALE").eq("reference_id", sale.id),
+  ]);
+  const saleDataError = [itemsResult, allocationsResult, moneyResult, xpResult, pointsResult].find((result) => result.error)?.error;
+  if (saleDataError || !itemsResult.data?.length) return { status: "error", message: "No fue posible reconstruir los efectos originales de la venta." };
+  if ((moneyResult.data?.length ?? 0) !== (allocationsResult.data?.length ?? 0)) {
+    return { status: "error", message: "La venta no tiene un reparto de dinero completo y requiere revisión antes de anularse." };
+  }
+
+  const productIds = [...new Set(itemsResult.data.map((item) => item.product_id))];
+  const { data: products, error: productsError } = await admin.from("products").select("id, stock").in("id", productIds);
+  if (productsError || (products?.length ?? 0) !== productIds.length) return { status: "error", message: "No fue posible comprobar el inventario que se debe restituir." };
+  const stockByProduct = Object.fromEntries((products ?? []).map((product) => [product.id, product.stock]));
+
+  const now = new Date();
+  const voidedAt = now.toISOString();
+  const localDate = toLocalDate(now, settingsResult.data.timezone);
+  let streak: ReturnType<typeof replayStreak> | undefined;
+  let challengeProgress: ChallengeProgressDraft[] = [];
+
+  if (sale.seller_type === "CHILD") {
+    const childId = sale.seller_id;
+    const [salesResult, protectorsResult, challengesResult, progressResult] = await Promise.all([
+      admin.from("sales").select("id, local_date, units_total, earnings_total").eq("seller_id", childId).eq("seller_type", "CHILD").eq("status", "COMPLETED").neq("id", sale.id),
+      admin.from("protector_events").select("local_date, quantity").eq("child_id", childId).order("local_date"),
+      admin.from("challenges").select("id, starts_on, ends_on, condition_type, target_value, product_id"),
+      admin.from("challenge_progress").select("id, challenge_id, child_id, completed_at, rewarded").eq("child_id", childId),
+    ]);
+    const progressError = [salesResult, protectorsResult, challengesResult, progressResult].find((result) => result.error)?.error;
+    if (progressError) return { status: "error", message: "No fue posible recalcular la racha y los retos." };
+    const remainingSales = salesResult.data ?? [];
+    const saleDays = new Map<string, number>();
+    for (const remaining of remainingSales) saleDays.set(remaining.local_date, (saleDays.get(remaining.local_date) ?? 0) + 1);
+    streak = replayStreak({
+      saleDays: [...saleDays].map(([date, count]) => ({ date, count })),
+      protectorGrants: (protectorsResult.data ?? []).map((event) => ({ date: event.local_date, quantity: event.quantity })),
+      today: localDate,
+      maxProtectors: settingsResult.data.protector_max,
+    });
+
+    const remainingSaleIds = remainingSales.map((remaining) => remaining.id);
+    const { data: remainingItems, error: remainingItemsError } = remainingSaleIds.length
+      ? await admin.from("sale_items").select("sale_id, product_id, quantity").in("sale_id", remainingSaleIds)
+      : { data: [] as { sale_id: string; product_id: string; quantity: number }[], error: null };
+    if (remainingItemsError) return { status: "error", message: "No fue posible recalcular los productos de los retos." };
+    const challengeById = new Map((challengesResult.data ?? []).map((challenge) => [challenge.id, challenge]));
+    challengeProgress = (progressResult.data ?? []).flatMap((progress) => {
+      const challenge = challengeById.get(progress.challenge_id);
+      if (!challenge) return [];
+      const salesInRange = remainingSales.filter((remaining) => remaining.local_date >= challenge.starts_on && remaining.local_date <= challenge.ends_on);
+      const idsInRange = new Set(salesInRange.map((remaining) => remaining.id));
+      let currentValue = 0;
+      switch (challenge.condition_type as ChallengeCondition) {
+        case "SALES_COUNT": currentValue = salesInRange.length; break;
+        case "UNITS_SOLD": currentValue = salesInRange.reduce((sum, remaining) => sum + remaining.units_total, 0); break;
+        case "PROFIT_AMOUNT": currentValue = salesInRange.reduce((sum, remaining) => sum + remaining.earnings_total, 0); break;
+        case "ACTIVE_DAYS": currentValue = new Set(salesInRange.map((remaining) => remaining.local_date)).size; break;
+        case "PRODUCT_UNITS": currentValue = (remainingItems ?? []).filter((item) => idsInRange.has(item.sale_id) && item.product_id === challenge.product_id).reduce((sum, item) => sum + item.quantity, 0); break;
+      }
+      return [{
+        id: progress.id,
+        challengeId: progress.challenge_id,
+        childId: progress.child_id,
+        currentValue,
+        completedAt: currentValue >= Number(challenge.target_value) ? progress.completed_at : null,
+        rewarded: progress.rewarded,
+      }];
+    });
+  }
+
+  const recipients = new Set([sale.seller_id, ...(allocationsResult.data ?? []).map((allocation) => allocation.child_id)]);
+  const notifications: NotificationDraft[] = [...recipients].map((profileId) => ({
+    profileId,
+    type: "SALE_VOIDED",
+    title: `Venta #${sale.id.slice(0, 6).toUpperCase()} anulada`,
+    body: `Motivo: ${parsed.data.reason}`,
+    icon: "↩️",
+    referenceType: "SALE",
+    referenceId: sale.id,
+  }));
+
+  let payload: ReturnType<typeof buildSaleVoidPayload>;
+  try {
+    payload = buildSaleVoidPayload({
+      idFactory: () => crypto.randomUUID(),
+      sale,
+      items: itemsResult.data,
+      allocations: allocationsResult.data ?? [],
+      originalMoney: moneyResult.data ?? [],
+      originalXp: xpResult.data ?? [],
+      originalPoints: pointsResult.data ?? [],
+      stockByProduct,
+      voidedAt,
+      voidedBy: parent.id,
+      voidReason: parsed.data.reason,
+      localDate,
+      challengeProgress,
+      streak,
+      notifications,
+    });
+  } catch {
+    return { status: "error", message: "No fue posible preparar una reversión íntegra de la venta." };
+  }
+
+  const { error } = await admin.rpc("sale_void", { p: payload as unknown as Json });
+  if (error) {
+    if (error.message.includes("SALE_NOT_VOIDABLE")) return { status: "error", message: "La venta fue anulada por otra operación. Actualiza la página." };
+    return { status: "error", message: "No fue posible anular la venta. No se guardó ningún cambio." };
+  }
+  revalidateSalePaths();
+  return { status: "success", message: "Venta anulada. Se revirtieron inventario, dinero y progreso en una sola operación." };
 }

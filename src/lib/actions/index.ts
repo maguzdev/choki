@@ -10,8 +10,8 @@ export { deleteCategory, deleteProduct, saveCategory, saveProduct } from "./prod
 export type { CatalogActionState } from "./products";
 export { adjustStock, registerPurchase } from "./inventory";
 export type { InventoryActionState } from "./inventory";
-export { registerSale } from "./sales";
-export type { SaleActionResult, SaleSummary } from "./sales";
+export { registerSale, voidSale } from "./sales";
+export type { SaleActionResult, SaleSummary, VoidSaleActionResult } from "./sales";
 export { moveSavings, registerWithdrawal, updateSavingSettings } from "./wallet";
 export type { WalletActionState } from "./wallet";
 export { changeGoalStatus, contributeToGoal, exitGoalMoney, saveGoal } from "./goals";
@@ -25,3 +25,7 @@ export {
   saveChallenge, saveGamificationRule, saveLevel, updateProtectorMax,
 } from "./gamification";
 export type { GamificationActionResult } from "./gamification";
+export { saveGlobalSettings, saveProfitSplit } from "./settings";
+export type { SettingsActionResult } from "./settings";
+export { saveProfile } from "./profiles";
+export type { ProfileActionResult } from "./profiles";

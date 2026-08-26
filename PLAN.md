@@ -1804,7 +1804,8 @@ Además, los **constructores de payload**: `buildSaleCommitPayload(...)` y `buil
 2. Estados vacíos, de carga (`loading.tsx` por segmento) y de error (`error.tsx`) en todas las rutas.
 3. `prefers-reduced-motion`, contraste AA en texto sobre crema y sobre caramelo, `aria-label` en los controles del POS, foco visible.
 4. Recorrer el **checklist §K** completo con los datos semilla.
-5. `README.md` final con §L.
+5. Actualización manual: botón visible “Actualizar” para recargar los datos actuales sin depender del gesto nativo del navegador; evaluar e implementar, si no interfiere con el scroll ni la accesibilidad, un gesto táctil de arrastrar para actualizar con el botón como alternativa equivalente.
+6. `README.md` final con §L.
 
 **Dependencias.** Todas.
 

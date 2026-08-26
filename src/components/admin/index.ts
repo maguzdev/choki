@@ -7,3 +7,6 @@ export { PurchaseForm, PurchaseHistory } from "./purchase-form";
 export { GamificationManager } from "./gamification-manager";
 export { RewardsManager } from "./rewards-manager";
 export { AdminSalesHistory, KpiGrid, SalesTable, SimpleBarChart } from "./dashboard-stats";
+export { SettingsManager } from "./settings-manager";
+export { PinForm, ProfileForm, ProfileManager } from "./profile-manager";
+export { VoidSaleDialog } from "./void-sale-dialog";

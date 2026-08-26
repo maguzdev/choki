@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, PackageSearch, ReceiptText, ShoppingBasket, Users } from "lucide-react";
+import { AlertTriangle, ArrowRight, PackageSearch, ReceiptText, Settings, ShoppingBasket, UserRoundCog, Users } from "lucide-react";
 import Link from "next/link";
 
 import { KpiGrid, SalesTable, SimpleBarChart } from "@/components/admin";
@@ -13,7 +13,7 @@ export default async function AdminHomePage({ searchParams }: { searchParams: Pr
   const data = await getAdminDashboardData(await searchParams);
 
   return <main className="mx-auto w-full max-w-7xl px-4 py-6 pb-12 text-choco-800">
-    <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="font-semibold text-caramel-600">Panel de la familia</p><h1 className="font-display text-4xl font-bold">Hola, {profile.name}</h1><p className="mt-1 text-sm text-choco-600">Ventas, ganancia e inventario en un solo lugar.</p></div><Link href="/admin/vender" className={buttonVariants({ className: "min-h-12" })}>Registrar venta</Link></header>
+    <header className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"><div><p className="font-semibold text-caramel-600">Panel de la familia</p><h1 className="font-display text-4xl font-bold">Hola, {profile.name}</h1><p className="mt-1 text-sm text-choco-600">Ventas, ganancia e inventario en un solo lugar.</p></div><div className="grid grid-cols-2 gap-2 sm:flex"><Link href="/admin/configuracion" className={buttonVariants({ variant: "outline", className: "min-h-11" })}><Settings /> Configuración</Link><Link href="/admin/perfiles" className={buttonVariants({ variant: "outline", className: "min-h-11" })}><UserRoundCog /> Perfiles</Link><Link href="/admin/vender" className={buttonVariants({ className: "col-span-2 min-h-12" })}>Registrar venta</Link></div></header>
     <PeriodFilter range={data.range} today={data.today} people={data.people} selectedPerson={data.selectedPerson} />
     <div className="mt-5"><KpiGrid data={data.kpis} /></div>
     <section className="mt-6 grid min-w-0 gap-4 lg:grid-cols-2"><SimpleBarChart title="Ventas por día" data={data.salesByDate} /><SimpleBarChart title="Utilidad por día" data={data.profitByDate} /></section>
