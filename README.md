@@ -13,9 +13,9 @@ Copia `.env.local.example` como `.env.local` y completa las claves que muestra `
 
 | Variable | Uso | Secreta |
 |---|---|:---:|
-| `NEXT_PUBLIC_SUPABASE_URL` | URL de Supabase local | No |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Sesiones del usuario | No |
-| `SUPABASE_SERVICE_ROLE_KEY` | Escrituras del servidor | Sí |
+| `SUPABASE_URL` | URL del proyecto de Supabase | No |
+| `SUPABASE_PUBLISHABLE_KEY` | Sesiones del usuario; equivale a la antigua `anon` | No |
+| `SUPABASE_SECRET_KEY` | Escrituras del servidor; equivale a la antigua `service_role` | Sí |
 | `CHILD_PIN_PEPPER` | Derivación segura de PIN infantiles | Sí |
 | `NEXT_PUBLIC_APP_NAME` | Nombre visible | No |
 

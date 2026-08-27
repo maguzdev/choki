@@ -61,9 +61,9 @@ const PROFILES: readonly SeedProfile[] = [
   },
 ];
 
-function requiredEnvironment(name: string) {
-  const value = process.env[name];
-  if (!value || value.startsWith("<")) throw new Error(`Falta configurar ${name}.`);
+function requiredEnvironment(primary: string, legacy?: string) {
+  const value = process.env[primary] ?? (legacy ? process.env[legacy] : undefined);
+  if (!value || value.startsWith("<")) throw new Error(`Falta configurar ${primary}.`);
   return value;
 }
 
@@ -79,8 +79,8 @@ function authPassword(profile: SeedProfile, userId: string, pepper: string) {
 
 async function main() {
   const supabase = createClient<Database>(
-    requiredEnvironment("NEXT_PUBLIC_SUPABASE_URL"),
-    requiredEnvironment("SUPABASE_SERVICE_ROLE_KEY"),
+    requiredEnvironment("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"),
+    requiredEnvironment("SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY"),
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
   const pepper = requiredEnvironment("CHILD_PIN_PEPPER");
