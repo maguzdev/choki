@@ -84,6 +84,7 @@ async function main() {
   );
   const pepper = requiredEnvironment("CHILD_PIN_PEPPER");
   const reset = process.argv.includes("--reset");
+  const accessOnly = process.argv.includes("--access-only");
   const { data: listedUsers, error: listError } = await supabase.auth.admin.listUsers({
     page: 1,
     perPage: 1000,
@@ -169,6 +170,11 @@ async function main() {
     if (settingsError) throw settingsError;
     if (splitError) throw splitError;
     if (streakError) throw streakError;
+  }
+
+  if (accessOnly) {
+    console.log(`Acceso inicial listo: ${createdProfiles.length} perfiles y configuración técnica mínima.`);
+    return;
   }
 
   const defaultGoals = new Map([

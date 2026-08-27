@@ -30,6 +30,8 @@ npm run db:reset
 npm run types
 npm run icons
 npm run seed
+# Para una base de producción vacía: crea solo los perfiles iniciales y la configuración técnica mínima.
+# npm run seed -- --access-only
 # npm run seed -- --with-sales
 npm run dev
 ```
@@ -69,6 +71,7 @@ Los datos semilla son temporales y se pueden reemplazar desde el administrador.
 | `npm run db:reset` | Reaplica migraciones locales |
 | `npm run types` | Genera tipos desde Supabase local |
 | `npm run seed` | Carga configuración y datos semilla |
+| `npm run seed -- --access-only` | Crea solo perfiles iniciales y configuración técnica mínima |
 | `npm run icons` | Genera favicon e iconos PWA |
 
 ## Estructura y reglas
