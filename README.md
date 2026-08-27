@@ -72,6 +72,7 @@ Los datos semilla son temporales y se pueden reemplazar desde el administrador.
 | `npm run types` | Genera tipos desde Supabase local |
 | `npm run seed` | Carga configuración y datos semilla |
 | `npm run seed -- --access-only` | Crea solo perfiles iniciales y configuración técnica mínima |
+| `npm run seed -- --production --access-only` | Usa `.env.production.local` para inicializar acceso en Supabase producción |
 | `npm run icons` | Genera favicon e iconos PWA |
 
 ## Estructura y reglas

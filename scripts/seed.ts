@@ -6,7 +6,8 @@ import { createClient, type User } from "@supabase/supabase-js";
 import { toLocalDate, weekDays } from "../src/lib/domain/dates";
 import type { Database } from "../src/types/database";
 
-nextEnv.loadEnvConfig(process.cwd());
+const useProductionEnvironment = process.argv.includes("--production");
+nextEnv.loadEnvConfig(process.cwd(), !useProductionEnvironment);
 
 type SeedProfile = {
   name: string;
