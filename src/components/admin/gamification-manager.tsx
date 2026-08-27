@@ -44,7 +44,8 @@ function ChallengeEditor({ item, products, today, submit, remove, busy }: { item
 
 export function GamificationManager({ data }: { data: AdminGamificationData }) {
   const [busy, startTransition] = useTransition();
-  const rules = data.rules.length ? data.rules : initialRules;
+  const rulesByEvent = new Map(data.rules.map((rule) => [rule.event, rule]));
+  const rules = initialRules.map((rule) => rulesByEvent.get(rule.event) ?? rule);
   const run = (action: () => Promise<GamificationActionResult>) => startTransition(async () => {
     const result = await action();
     if (result.status === "success") toast.success(result.message);
