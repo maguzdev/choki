@@ -15,6 +15,10 @@ import type { AdminGamificationData, LevelItem } from "@/lib/data/gamification";
 
 const field = "min-h-11 w-full rounded-lg border border-input bg-white px-3 text-base";
 const label = "space-y-1 text-sm font-semibold text-choco-600";
+const initialRules: AdminGamificationData["rules"] = [
+  { id: "SALE_COMPLETED", event: "SALE_COMPLETED", xpAmount: 0, pointsAmount: 0, active: false },
+  { id: "UNIT_SOLD", event: "UNIT_SOLD", xpAmount: 0, pointsAmount: 0, active: false },
+];
 
 function Check({ name, defaultChecked, text, disabled = false }: { name: string; defaultChecked?: boolean; text: string; disabled?: boolean }) {
   return <FormSwitch name={name} defaultChecked={defaultChecked} label={text} disabled={disabled} />;
@@ -40,13 +44,14 @@ function ChallengeEditor({ item, products, today, submit, remove, busy }: { item
 
 export function GamificationManager({ data }: { data: AdminGamificationData }) {
   const [busy, startTransition] = useTransition();
+  const rules = data.rules.length ? data.rules : initialRules;
   const run = (action: () => Promise<GamificationActionResult>) => startTransition(async () => {
     const result = await action();
     if (result.status === "success") toast.success(result.message);
     else toast.error(result.message);
   });
   return <div className="space-y-7">
-    <details className="rounded-card border border-cream-200 bg-cream-50 p-4 shadow-soft"><summary className="cursor-pointer font-display text-2xl font-bold">Reglas por venta</summary><p className="mb-4 mt-1 text-sm text-choco-600">Los cambios se aplican únicamente a ventas futuras.</p><div className="space-y-3">{data.rules.map((rule) => <SubmitForm key={rule.id} onSubmit={(form) => run(() => saveGamificationRule(form))}><input type="hidden" name="event" value={rule.event} /><div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_8rem_8rem_auto]"><div><p className="font-bold">{rule.event === "SALE_COMPLETED" ? "Venta completada" : "Cada unidad vendida"}</p><p className="text-xs text-choco-600">{rule.event}</p></div><label className={label}>XP<Input name="xpAmount" inputMode="numeric" defaultValue={rule.xpAmount} /></label><label className={label}>Puntos<Input name="pointsAmount" inputMode="numeric" defaultValue={rule.pointsAmount} /></label><Check name="active" defaultChecked={rule.active} text="Activa" /></div><Button disabled={busy} type="submit" variant="outline"><Save /> Guardar regla</Button></SubmitForm>)}</div></details>
+    <details className="rounded-card border border-cream-200 bg-cream-50 p-4 shadow-soft"><summary className="cursor-pointer font-display text-2xl font-bold">Reglas por venta</summary><p className="mb-4 mt-1 text-sm text-choco-600">Los cambios se aplican únicamente a ventas futuras.</p><div className="space-y-3">{rules.map((rule) => <SubmitForm key={rule.id} onSubmit={(form) => run(() => saveGamificationRule(form))}><input type="hidden" name="event" value={rule.event} /><div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_8rem_8rem_auto]"><div><p className="font-bold">{rule.event === "SALE_COMPLETED" ? "Venta completada" : "Cada unidad vendida"}</p><p className="text-xs text-choco-600">{rule.event}</p></div><label className={label}>XP<Input name="xpAmount" inputMode="numeric" defaultValue={rule.xpAmount} /></label><label className={label}>Puntos<Input name="pointsAmount" inputMode="numeric" defaultValue={rule.pointsAmount} /></label><Check name="active" defaultChecked={rule.active} text="Activa" /></div><Button disabled={busy} type="submit" variant="outline"><Save /> Guardar regla</Button></SubmitForm>)}</div></details>
     <details className="rounded-card border border-cream-200 bg-cream-50 p-4 shadow-soft"><summary className="cursor-pointer font-display text-2xl font-bold">Protectores</summary><p className="mt-1 text-sm text-choco-600">Cada niño recibe 3 gratuitos y puede reponer los consumidos sin superar este límite.</p><SubmitForm onSubmit={(form) => run(() => updateProtectorMax(form))}><label className={label}>Límite por niño (máximo 3)<Input className="max-w-40" name="protectorMax" inputMode="numeric" min="0" max="3" defaultValue={data.protectorMax} /></label><Button disabled={busy} className="w-fit" type="submit"><Save /> Guardar límite</Button></SubmitForm></details>
     <section><div className="mb-3 flex items-center gap-2"><Plus className="size-5 text-xp-500" /><h2 className="font-display text-2xl font-bold">Niveles</h2></div><div className="space-y-3">{data.levels.map((item) => <LevelEditor key={item.id} level={item} busy={busy} submit={(form) => run(() => saveLevel(form))} remove={() => run(() => deleteLevel(item.id))} />)}<LevelEditor busy={busy} submit={(form) => run(() => saveLevel(form))} /></div></section>
     <section><h2 className="mb-3 font-display text-2xl font-bold">Logros</h2><div className="space-y-3">{data.achievements.map((item) => <AchievementEditor key={item.id} item={item} products={data.products} busy={busy} submit={(form) => run(() => saveAchievement(form))} remove={() => run(() => deleteAchievement(item.id))} />)}<AchievementEditor products={data.products} busy={busy} submit={(form) => run(() => saveAchievement(form))} /></div></section>
