@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { Search, ShoppingBasket } from "lucide-react";
+import { ArrowLeft, Search, ShoppingBasket } from "lucide-react";
+import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import type { SaleSummary } from "@/lib/actions/sales";
 import { createClientUuid } from "@/lib/client-id";
 import type { PosData } from "@/lib/data/pos";
@@ -108,8 +109,7 @@ export function PosApp({ seller, categories, products, homeHref }: PosData & { h
 
   return <main className="mx-auto min-h-[calc(100dvh-68px)] w-full max-w-3xl bg-cream-100 pb-32">
     <header className="sticky top-0 z-20 border-b border-cream-200 bg-cream-50/95 px-4 py-3 backdrop-blur">
-      <p className="text-xs font-semibold uppercase tracking-wide text-choco-600">Vendiendo como</p>
-      <h1 className="font-display text-2xl font-bold text-choco-800">{seller.avatarEmoji} {seller.name}</h1>
+      <div className="flex items-center gap-2"><Link href={homeHref} className={buttonVariants({ variant: "ghost", size: "icon" })} aria-label="Volver al inicio"><ArrowLeft aria-hidden="true" /></Link><div><p className="text-xs font-semibold uppercase tracking-wide text-choco-600">Vendiendo como</p><h1 className="font-display text-2xl font-bold text-choco-800">{seller.avatarEmoji} {seller.name}</h1></div></div>
       <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Categorías">
         <button type="button" onClick={() => setCategoryId("ALL")} className={`min-h-11 shrink-0 rounded-full border px-4 text-sm font-semibold ${categoryId === "ALL" ? "border-caramel-600 bg-caramel-400/30" : "border-cream-200 bg-white"}`}>Todos</button>
         {categories.map((category) => <button key={category.id} type="button" onClick={() => setCategoryId(category.id)} className={`min-h-11 shrink-0 rounded-full border px-4 text-sm font-semibold ${categoryId === category.id ? "border-caramel-600 bg-caramel-400/30" : "border-cream-200 bg-white"}`}>{category.emoji} {category.name}</button>)}

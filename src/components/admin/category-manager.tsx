@@ -37,7 +37,7 @@ function CategoryEditor({ category, onClose }: { category?: Category; onClose: (
           {FOOD_EMOJIS.map((item, index) => <button key={`${item}-${index}`} type="button" onClick={() => setEmoji(item)} className={`flex size-11 items-center justify-center rounded-lg border text-xl ${emoji === item ? "border-caramel-600 bg-caramel-400/30" : "border-cream-200 bg-white"}`} aria-label={`Usar ${item}`}>{item}</button>)}
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-[1fr_auto] items-end gap-3">
+      <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <label className="block text-sm font-semibold">Orden<input name="sortOrder" type="number" min="0" inputMode="numeric" defaultValue={category?.sort_order ?? 0} className="mt-1 h-11 w-full rounded-lg border border-cream-200 bg-white px-3" required /></label>
         <div className="rounded-lg bg-cream-100 px-3"><FormSwitch name="active" defaultChecked={category?.active ?? true} label="Activa" disabled={pending} /></div>
       </div>

@@ -29,8 +29,8 @@ export function FormSwitch({
     onCheckedChange?.(next);
   }
 
-  return <label className={`flex min-h-11 items-center justify-between gap-3 text-sm font-semibold text-choco-600 ${className}`}>
-    <span>{label}</span>
+  return <label className={`flex min-h-11 min-w-0 items-center justify-between gap-3 text-sm font-semibold text-choco-600 ${className}`}>
+    <span className="min-w-0">{label}</span>
     {name ? <input type="hidden" name={name} value={value ? "on" : ""} /> : null}
     <Switch checked={value} onCheckedChange={change} disabled={disabled} aria-label={label} />
   </label>;

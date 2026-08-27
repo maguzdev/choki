@@ -1,5 +1,7 @@
-import { PackageOpen } from "lucide-react";
+import { ArrowLeft, PackageOpen } from "lucide-react";
+import Link from "next/link";
 
+import { buttonVariants } from "@/components/ui/button";
 import { requireChild } from "@/lib/auth/guards";
 import { getChildInventory } from "@/lib/data/products";
 import { formatCOP } from "@/lib/domain/money";
@@ -11,7 +13,8 @@ export default async function ChildInventoryPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6 pb-10">
       <header className="rounded-card bg-choco-800 p-5 text-cream-50 shadow-soft">
-        <PackageOpen aria-hidden="true" className="size-8 text-caramel-400" />
+        <Link href="/" className={buttonVariants({ variant: "ghost", size: "icon", className: "text-cream-50 hover:bg-cream-50/10 hover:text-cream-50" })} aria-label="Volver al inicio"><ArrowLeft aria-hidden="true" /></Link>
+        <PackageOpen aria-hidden="true" className="mt-3 size-8 text-caramel-400" />
         <p className="mt-4 font-display text-lg font-semibold text-caramel-400">Inventario</p>
         <h1 className="font-display text-3xl font-bold">Productos disponibles</h1>
         <p className="mt-2 text-sm text-cream-200">Aquí ves precios y existencias, sin información de costos.</p>

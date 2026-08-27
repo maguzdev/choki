@@ -56,7 +56,7 @@ export function ProductForm({ categories, products }: { categories: Category[]; 
       if (result.status === "success") setDeleting(undefined);
     });
   }
-  return <section className="space-y-4"><Editor key={product?.id ?? "new-product"} categories={categories} product={product} onClose={() => setEditingId(undefined)} />
+  return <section className="min-w-0 space-y-4"><Editor key={product?.id ?? "new-product"} categories={categories} product={product} onClose={() => setEditingId(undefined)} />
     {message ? <p className="text-sm text-choco-600">{message}</p> : null}
     <div className="space-y-2"><div className="flex items-center gap-2"><Plus className="size-5 text-caramel-600" /><h2 className="font-display text-2xl font-bold">Productos</h2></div>
       {products.map((item) => <article key={item.id} className="flex items-center gap-3 rounded-lg border border-cream-200 bg-white p-3"><span className="text-2xl">{item.emoji}</span><div className="min-w-0 flex-1"><p className="truncate font-semibold">{item.name}</p><p className="text-sm text-choco-600">{formatCOP(item.price)} · Stock {item.stock} · Costo {formatCOP(item.cost)}</p></div>{!item.active ? <span className="rounded-full bg-cream-200 px-2 py-1 text-xs">Inactivo</span> : null}<Button type="button" variant="ghost" size="icon" onClick={() => setEditingId(item.id)} aria-label={`Editar ${item.name}`}><Pencil className="size-4" /></Button><Button type="button" variant="ghost" size="icon" disabled={pending} onClick={() => setDeleting(item)} aria-label={`Eliminar ${item.name}`}><Trash2 className="size-4 text-danger-500" /></Button></article>)}
