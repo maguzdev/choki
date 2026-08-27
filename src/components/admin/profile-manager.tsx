@@ -44,7 +44,7 @@ export function ProfileForm({ profile, onSaved }: { profile?: ManagedProfile; on
 }
 
 function ProfileEditor({ profile }: { profile?: ManagedProfile }) {
-  const [open, setOpen] = useState(!profile);
+  const [open, setOpen] = useState(false);
   const [version, setVersion] = useState(0);
   return <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)} className="rounded-xl border border-cream-200 bg-white p-3"><summary className="cursor-pointer font-display text-lg font-bold">{profile ? `${profile.avatarEmoji} ${profile.name}${profile.active ? "" : " · Inactivo"}` : "➕ Crear perfil"}</summary>{open ? <ProfileForm key={version} profile={profile} onSaved={() => { setOpen(false); setVersion((current) => current + 1); }} /> : null}</details>;
 }

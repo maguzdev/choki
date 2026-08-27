@@ -15,7 +15,7 @@ const field = "min-h-11 w-full rounded-lg border border-input bg-white px-3 text
 const label = "space-y-1 text-sm font-semibold text-choco-600";
 
 function RewardEditor({ item, busy, submit, remove }: { item?: AdminRewardsData["rewards"][number]; busy: boolean; submit: (data: FormData, form: HTMLFormElement) => void; remove?: () => void }) {
-  return <details open={!item} className="rounded-xl border border-cream-200 bg-white p-3">
+  return <details className="rounded-xl border border-cream-200 bg-white p-3">
     <summary className="cursor-pointer font-display text-lg font-bold">{item ? `${item.icon} ${item.name}` : "➕ Nuevo premio"}</summary>
     <form className="mt-3 grid gap-3" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); submit(new FormData(event.currentTarget), event.currentTarget); }}>
       <input type="hidden" name="id" value={item?.id ?? ""} />

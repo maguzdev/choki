@@ -27,8 +27,8 @@ export function SettingsManager({ data }: { data: AdminSettingsData }) {
   }
 
   return <div className="space-y-6">
-    <section className="rounded-card border border-cream-200 bg-cream-50 p-4 shadow-soft">
-      <h2 className="font-display text-2xl font-bold">Configuración general</h2>
+    <details className="rounded-card border border-cream-200 bg-cream-50 p-4 shadow-soft">
+      <summary className="cursor-pointer font-display text-2xl font-bold">Configuración general</summary>
       <p className="mt-1 text-sm text-choco-600">Estos cambios afectan la experiencia de toda la familia.</p>
       <form className="mt-4 grid gap-4" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); run(() => saveGlobalSettings(new FormData(event.currentTarget))); }}>
         <label className={label}>Nombre familiar<Input name="familyName" defaultValue={data.settings.familyName} required /></label>
@@ -43,16 +43,16 @@ export function SettingsManager({ data }: { data: AdminSettingsData }) {
         </div>
         <Button disabled={busy} type="submit" className="w-full sm:w-fit"><Save /> Guardar configuración</Button>
       </form>
-    </section>
+    </details>
 
-    <section className="rounded-card border border-cream-200 bg-cream-50 p-4 shadow-soft">
-      <div className="flex items-center gap-2"><Users className="size-5 text-caramel-600" /><h2 className="font-display text-2xl font-bold">Reparto de ventas familiares</h2></div>
+    <details className="rounded-card border border-cream-200 bg-cream-50 p-4 shadow-soft">
+      <summary className="flex cursor-pointer items-center gap-2 font-display text-2xl font-bold"><Users className="size-5 text-caramel-600" /> Reparto de ventas familiares</summary>
       <p className="mt-1 text-sm text-choco-600">Se aplica a las ventas nuevas registradas por un padre. Los porcentajes deben sumar exactamente 100 %.</p>
       {activeChildren.length ? <form className="mt-4 grid gap-3" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); run(() => saveProfitSplit(new FormData(event.currentTarget))); }}>
         {activeChildren.map((child) => <label key={child.id} className="grid grid-cols-[1fr_7rem] items-center gap-3 rounded-xl border border-cream-200 bg-white p-3 font-semibold"><span>{child.avatarEmoji} {child.name}</span><span className="relative"><Input name={`percent-${child.id}`} type="number" min="0" max="100" step="0.01" inputMode="decimal" value={percentages[child.id] ?? ""} onChange={(event) => setPercentages((current) => ({ ...current, [child.id]: event.target.value }))} required /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-choco-600">%</span></span></label>)}
         <p className={`rounded-xl p-3 text-sm font-bold ${Math.abs(total - 100) < 0.000_001 ? "bg-success-500/10 text-success-500" : "bg-danger-500/10 text-danger-500"}`}>Total: {total.toLocaleString("es-CO", { maximumFractionDigits: 2 })} %</p>
         <Button disabled={busy || Math.abs(total - 100) > 0.000_001} type="submit" className="w-full sm:w-fit"><Save /> Guardar reparto</Button>
       </form> : <p className="mt-4 rounded-xl bg-cream-100 p-3 text-sm text-choco-600">Activa o crea un perfil infantil antes de configurar el reparto.</p>}
-    </section>
+    </details>
   </div>;
 }
